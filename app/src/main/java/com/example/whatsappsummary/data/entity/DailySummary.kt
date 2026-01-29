@@ -15,7 +15,7 @@ import androidx.room.PrimaryKey
             onDelete = ForeignKey.CASCADE
         )
     ],
-    indices = [Index("chatId"), Index("date")]
+    indices = [Index(value = ["chatId","date"], unique = true)]
 )
 data class DailySummary(
     @PrimaryKey(autoGenerate = true)

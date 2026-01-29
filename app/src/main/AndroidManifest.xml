@@ -27,11 +27,12 @@
             </intent-filter>
         </activity>
 
-        <!-- Actividad de detalle de chat -->
+        <!-- Actividad de detalle de chat (sin ActionBar, usa Toolbar en layout) -->
         <activity
             android:name=".ui.ChatDetailActivity"
             android:exported="false"
-            android:parentActivityName=".ui.MainActivity" />
+            android:parentActivityName=".ui.MainActivity"
+            android:theme="@style/Theme.WhatsAppSummary.NoActionBar" />
 
         <!-- Servicio de escucha de notificaciones -->
         <service

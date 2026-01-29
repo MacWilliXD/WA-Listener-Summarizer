@@ -23,4 +23,7 @@ interface MessageDao {
     
     @Query("SELECT COUNT(*) FROM messages WHERE chatId = :chatId AND timestamp >= :startTime AND timestamp <= :endTime")
     suspend fun getMessageCountByDateRange(chatId: String, startTime: Long, endTime: Long): Int
+
+    @Query("SELECT COUNT(*) FROM messages WHERE chatId = :chatId AND senderName = :senderName AND messageText = :messageText AND timestamp >= :sinceTime")
+    suspend fun countSimilarRecent(chatId: String, senderName: String, messageText: String, sinceTime: Long): Int
 }

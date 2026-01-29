@@ -32,13 +32,23 @@ class ChatDetailActivity : AppCompatActivity() {
             return
         }
         
-        setupToolbar()
-        setupViewModel()
-        setupTabs()
+        try {
+            setupToolbar()
+            setupViewModel()
+            setupTabs()
+        } catch (e: Exception) {
+            android.util.Log.e("ChatDetailActivity", "Error inicializando vista de detalle", e)
+            finish()
+            return
+        }
         
         // Cargar fragmento inicial
         if (savedInstanceState == null) {
-            showFragment(MessagesFragment.newInstance(chatId!!))
+            try {
+                showFragment(MessagesFragment.newInstance(chatId!!))
+            } catch (e: Exception) {
+                android.util.Log.e("ChatDetailActivity", "Error al cargar fragmento inicial", e)
+            }
         }
     }
 
@@ -56,7 +66,11 @@ class ChatDetailActivity : AppCompatActivity() {
 
     private fun setupViewModel() {
         viewModel = ViewModelProvider(this)[ChatDetailViewModel::class.java]
-        viewModel.loadChatData(chatId!!)
+        try {
+            chatId?.let { viewModel.loadChatData(it) }
+        } catch (e: Exception) {
+            android.util.Log.e("ChatDetailActivity", "Error cargando datos del chat", e)
+        }
     }
 
     private fun setupTabs() {
@@ -77,8 +91,12 @@ class ChatDetailActivity : AppCompatActivity() {
     }
 
     private fun showFragment(fragment: Fragment) {
-        supportFragmentManager.beginTransaction()
-            .replace(R.id.fragmentContainer, fragment)
-            .commit()
+        try {
+            supportFragmentManager.beginTransaction()
+                .replace(R.id.fragmentContainer, fragment)
+                .commitAllowingStateLoss()
+        } catch (e: Exception) {
+            android.util.Log.e("ChatDetailActivity", "Error mostrando fragmento", e)
+        }
     }
 }

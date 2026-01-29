@@ -107,15 +107,23 @@ class WhatsAppNotificationListener : NotificationListenerService() {
             database.chatDao().updateChat(updatedChat)
         }
 
-        // Guardar el mensaje
-        val message = Message(
-            chatId = chatId,
-            senderName = senderName,
-            messageText = actualMessage,
-            timestamp = timestamp,
-            isGroupMessage = isGroup
-        )
-        database.messageDao().insertMessage(message)
+        // Evitar duplicados: si ya existe un mensaje similar en los últimos segundos, omitir
+        val dedupeWindowMs = 5_000L // 5 segundos
+        val sinceTime = timestamp - dedupeWindowMs
+        val similarCount = database.messageDao().countSimilarRecent(chatId, senderName, actualMessage, sinceTime)
+        if (similarCount == 0) {
+            // Guardar el mensaje
+            val message = Message(
+                chatId = chatId,
+                senderName = senderName,
+                messageText = actualMessage,
+                timestamp = timestamp,
+                isGroupMessage = isGroup
+            )
+            database.messageDao().insertMessage(message)
+        } else {
+            Log.d(TAG, "Mensaje duplicado detectado, omitiendo insert: $chatId | $senderName | $actualMessage")
+        }
 
         // Generar resumen diario
         generateDailySummary(chatId, timestamp)
