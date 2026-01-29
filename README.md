@@ -61,7 +61,7 @@ MIT License. Puedes usar, modificar y compartir libremente.
 
 ## 👨‍💻 Autor
 
-- [Tu Nombre](https://github.com/tuusuario)
+- [MacWilliXD](https://github.com/MacWilliXD)
 
 ---
 
