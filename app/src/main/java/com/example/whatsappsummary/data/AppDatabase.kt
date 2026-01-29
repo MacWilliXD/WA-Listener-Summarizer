@@ -13,7 +13,7 @@ import com.example.whatsappsummary.data.entity.Message
 
 @Database(
     entities = [Chat::class, Message::class, DailySummary::class],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -31,7 +31,10 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "whatsapp_summary_database"
-                ).build()
+                )
+                    // Si el esquema cambió y no hay migraciones, limpiar la BD.
+                    .fallbackToDestructiveMigration()
+                    .build()
                 INSTANCE = instance
                 instance
             }
