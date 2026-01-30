@@ -1,6 +1,5 @@
 package com.example.whatsappsummary.ui.fragment
 
-import android.app.DatePickerDialog
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -12,7 +11,6 @@ import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.whatsappsummary.databinding.FragmentSummariesBinding
 import com.example.whatsappsummary.ui.adapter.SummaryAdapter
 import com.example.whatsappsummary.viewmodel.ChatDetailViewModel
-import java.text.SimpleDateFormat
 import java.util.*
 
 class SummariesFragment : Fragment() {
@@ -24,8 +22,7 @@ class SummariesFragment : Fragment() {
     private lateinit var adapter: SummaryAdapter
     private var chatId: String? = null
     
-    private var startDate: String? = null
-    private var endDate: String? = null
+    
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,7 +43,7 @@ class SummariesFragment : Fragment() {
         
         setupRecyclerView()
         setupObservers()
-        setupDateFilter()
+        setupControls()
     }
 
     private fun setupRecyclerView() {
@@ -63,7 +60,11 @@ class SummariesFragment : Fragment() {
     private fun setupObservers() {
         viewModel.summaries.observe(viewLifecycleOwner) { summaries ->
             adapter.submitList(summaries)
-            
+            // ensure summaries show newest first and start at top
+            binding.recyclerViewSummaries.post {
+                if (summaries.isNotEmpty()) binding.recyclerViewSummaries.scrollToPosition(0)
+            }
+
             if (summaries.isEmpty()) {
                 binding.textViewEmpty.visibility = View.VISIBLE
                 binding.recyclerViewSummaries.visibility = View.GONE
@@ -72,60 +73,36 @@ class SummariesFragment : Fragment() {
                 binding.recyclerViewSummaries.visibility = View.VISIBLE
             }
         }
-    }
-
-    private fun setupDateFilter() {
-        binding.buttonStartDate.setOnClickListener {
-            showDatePicker { date ->
-                startDate = date
-                binding.buttonStartDate.text = "Desde: $date"
-                applyFilter()
-            }
+        viewModel.isGenerating.observe(viewLifecycleOwner) { generating ->
+            binding.progressGenerating.visibility = if (generating) View.VISIBLE else View.GONE
+            binding.buttonGenerateSummary.isEnabled = !generating
         }
-        
-        binding.buttonEndDate.setOnClickListener {
-            showDatePicker { date ->
-                endDate = date
-                binding.buttonEndDate.text = "Hasta: $date"
-                applyFilter()
+        viewModel.generationError.observe(viewLifecycleOwner) { err ->
+            err?.let {
+                Toast.makeText(requireContext(), "Error generando resumen: $it", Toast.LENGTH_LONG).show()
+                viewModel.clearGenerationError()
             }
-        }
-        
-        binding.buttonClearFilter.setOnClickListener {
-            startDate = null
-            endDate = null
-            binding.buttonStartDate.text = "Fecha inicio"
-            binding.buttonEndDate.text = "Fecha fin"
-            // Recargar todos los resúmenes
-            chatId?.let { viewModel.loadChatData(it) }
         }
     }
 
-    private fun showDatePicker(onDateSelected: (String) -> Unit) {
-        val calendar = Calendar.getInstance()
-        val datePickerDialog = DatePickerDialog(
-            requireContext(),
-            { _, year, month, dayOfMonth ->
-                calendar.set(year, month, dayOfMonth)
-                val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-                onDateSelected(dateFormat.format(calendar.time))
-            },
-            calendar.get(Calendar.YEAR),
-            calendar.get(Calendar.MONTH),
-            calendar.get(Calendar.DAY_OF_MONTH)
-        )
-        datePickerDialog.show()
-    }
+    private fun setupControls() {
+        val prefs = requireContext().getSharedPreferences("whatsapp_prefs", 0)
+        val key = "auto_summaries_${chatId ?: "global"}"
+        val isAuto = prefs.getBoolean(key, false)
+        binding.switchAutoSummaries.isChecked = isAuto
 
-    private fun applyFilter() {
-        if (startDate != null && endDate != null) {
-            chatId?.let { id ->
-                viewModel.loadSummariesByDateRange(id, startDate!!, endDate!!)
-            }
-        } else if (startDate != null || endDate != null) {
-            Toast.makeText(requireContext(), "Selecciona ambas fechas", Toast.LENGTH_SHORT).show()
+        binding.switchAutoSummaries.setOnCheckedChangeListener { _, isChecked ->
+            prefs.edit().putBoolean(key, isChecked).apply()
+            Toast.makeText(requireContext(), if (isChecked) "Auto activado" else "Auto desactivado", Toast.LENGTH_SHORT).show()
+        }
+
+        binding.buttonGenerateSummary.setOnClickListener {
+            // trigger manual generation via ViewModel
+            viewModel.generateManualSummary()
         }
     }
+
+    // Date filtering is handled at activity level (ChatDetailActivity)
 
     override fun onDestroyView() {
         super.onDestroyView()

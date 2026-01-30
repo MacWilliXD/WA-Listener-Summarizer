@@ -1,10 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="purple_200">#FFBB86FC</color>
-    <color name="purple_500">#FF6200EE</color>
-    <color name="purple_700">#FF3700B3</color>
-    <color name="teal_200">#FF03DAC5</color>
-    <color name="teal_700">#FF018786</color>
+    <!-- Pastel green palette -->
+    <color name="pastel_green_100">#F0FBF4</color>
+    <color name="pastel_green_300">#C6F6D5</color>
+    <color name="pastel_green_500">#8EE2A8</color>
+
+    <color name="pastel_mint">#DFFCF0</color>
+    <color name="pastel_teal_300">#B8F0E4</color>
+
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
+
+    <!-- App tokens (pastel primary/secondary + neutrals) -->
+    <color name="colorPrimary">#8EE2A8</color>
+    <color name="colorPrimaryVariant">#C6F6D5</color>
+    <color name="colorSecondary">#B8F0E4</color>
+    <color name="colorSecondaryVariant">#DFFCF0</color>
+
+    <color name="colorBackground">#FFFFFF</color>
+    <color name="colorSurface">#FFFFFF</color>
+    <color name="colorOnPrimary">#FFFFFFFF</color>
+    <color name="colorOnBackground">#212121</color>
+    <color name="colorTextPrimary">#212121</color>
+    <color name="colorTextSecondary">#6B6B6B</color>
+    <color name="colorCardBackground">#FFFFFF</color>
+    <color name="colorDivider">#EEF8F1</color>
 </resources>

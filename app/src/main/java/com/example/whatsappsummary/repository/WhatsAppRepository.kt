@@ -13,6 +13,9 @@ class WhatsAppRepository(
     private val messageDao: MessageDao,
     private val dailySummaryDao: DailySummaryDao
 ) {
+    fun getAllPackages(): List<String> = chatDao.getAllPackages()
+
+    fun getChatsByPackage(packageName: String): List<Chat> = chatDao.getChatsByPackage(packageName)
     // Chat operations
     val allChats: LiveData<List<Chat>> = chatDao.getAllChats()
     
@@ -47,6 +50,9 @@ class WhatsAppRepository(
     
     suspend fun getSummariesByDateRange(chatId: String, startDate: String, endDate: String): List<DailySummary> =
         dailySummaryDao.getSummariesByDateRange(chatId, startDate, endDate)
+
+    suspend fun getSummariesByTimestampRange(chatId: String, startTs: Long, endTs: Long): List<DailySummary> =
+        dailySummaryDao.getSummariesByTimestampRange(chatId, startTs, endTs)
     
     suspend fun insertSummary(summary: DailySummary) = dailySummaryDao.insertSummary(summary)
     

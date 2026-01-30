@@ -46,7 +46,8 @@ class MessagesFragment : Fragment() {
         
         binding.recyclerViewMessages.apply {
             layoutManager = LinearLayoutManager(requireContext()).apply {
-                reverseLayout = true
+                // show items stacked from end so newest messages appear at the bottom
+                reverseLayout = false
                 stackFromEnd = true
             }
             adapter = this@MessagesFragment.adapter
@@ -55,8 +56,14 @@ class MessagesFragment : Fragment() {
 
     private fun setupObservers() {
         viewModel.messages.observe(viewLifecycleOwner) { messages ->
-            adapter.submitList(messages)
-            
+            // Ensure messages are in chronological order (oldest -> newest)
+            val ordered = messages.sortedBy { it.timestamp }
+            adapter.submitList(ordered)
+            // Scroll to the last (most recent) message so view shows bottom initially
+            binding.recyclerViewMessages.post {
+                if (ordered.isNotEmpty()) binding.recyclerViewMessages.scrollToPosition(ordered.size - 1)
+            }
+
             if (messages.isEmpty()) {
                 binding.textViewEmpty.visibility = View.VISIBLE
                 binding.recyclerViewMessages.visibility = View.GONE

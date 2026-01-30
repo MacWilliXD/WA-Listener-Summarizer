@@ -14,7 +14,7 @@
             android:layout_width="match_parent"
             android:layout_height="?attr/actionBarSize"
             android:background="?attr/colorPrimary"
-            app:title="WhatsApp Summary"
+            app:title="Notificator Summary"
             app:titleTextColor="@android:color/white" />
 
     </com.google.android.material.appbar.AppBarLayout>
@@ -37,11 +37,11 @@
 
         <TextView
             android:id="@+id/textViewEmpty"
+            style="@style/TextAppearance.App.Body"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:text="No hay chats disponibles.\nLas notificaciones de WhatsApp aparecerán aquí."
+            android:text="No hay chats disponibles.\nLas notificaciones aparecerán aquí."
             android:textAlignment="center"
-            android:textSize="16sp"
             android:visibility="gone"
             app:layout_constraintBottom_toBottomOf="parent"
             app:layout_constraintEnd_toEndOf="parent"
@@ -51,12 +51,23 @@
     </androidx.constraintlayout.widget.ConstraintLayout>
 
     <com.google.android.material.floatingactionbutton.FloatingActionButton
+        style="@style/Widget.App.Fab"
         android:id="@+id/fabSettings"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom|start"
+        android:layout_margin="16dp"
+        android:contentDescription="Settings"
+        app:srcCompat="@android:drawable/ic_menu_preferences" />
+
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        style="@style/Widget.App.Fab"
+        android:id="@+id/fabFilter"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom|end"
         android:layout_margin="16dp"
-        android:contentDescription="Settings"
-        app:srcCompat="@android:drawable/ic_menu_preferences" />
+        android:contentDescription="Filtros"
+        app:srcCompat="@android:drawable/ic_menu_search" />
 
 </androidx.coordinatorlayout.widget.CoordinatorLayout>

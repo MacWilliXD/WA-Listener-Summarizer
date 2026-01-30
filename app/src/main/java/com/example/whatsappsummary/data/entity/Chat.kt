@@ -10,5 +10,6 @@ data class Chat(
     val chatName: String, // Nombre del contacto o grupo
     val lastMessage: String, // Último mensaje recibido
     val lastMessageTime: Long, // Timestamp del último mensaje
-    val unreadCount: Int = 0 // Cantidad de mensajes no leídos
+    val unreadCount: Int = 0, // Cantidad de mensajes no leídos
+    val packageName: String = "" // Nombre del paquete de la app emisora
 )

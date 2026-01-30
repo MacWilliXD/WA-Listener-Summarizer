@@ -8,6 +8,9 @@ import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
 import com.example.whatsappsummary.data.entity.DailySummary
 import com.example.whatsappsummary.databinding.ItemSummaryBinding
+import java.util.Calendar
+import java.util.Date
+import java.util.Locale
 
 class SummaryAdapter(
     private val onSummaryClick: (DailySummary) -> Unit
@@ -23,7 +26,12 @@ class SummaryAdapter(
     }
 
     override fun onBindViewHolder(holder: SummaryViewHolder, position: Int) {
-        holder.bind(getItem(position))
+        val summary = getItem(position)
+        val showHeader = if (position == 0) true else {
+            val prev = getItem(position - 1)
+            prev.date != summary.date
+        }
+        holder.bind(summary, showHeader)
     }
 
     inner class SummaryViewHolder(
@@ -32,7 +40,31 @@ class SummaryAdapter(
 
         private var isExpanded = false
 
-        fun bind(summary: DailySummary) {
+        fun bind(summary: DailySummary, showHeader: Boolean) {
+            val header = binding.root.findViewById<android.widget.TextView>(com.example.whatsappsummary.R.id.headerDate)
+            if (showHeader) {
+                // summary.date expected format: yyyy-MM-dd
+                val headerText = try {
+                    val fmt = java.text.SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+                    val d = fmt.parse(summary.date)
+                    val calMsg = Calendar.getInstance().apply { time = d }
+                    val today = Calendar.getInstance()
+                    val yesterday = Calendar.getInstance().apply { timeInMillis = System.currentTimeMillis() - 24*60*60*1000 }
+                        val dateFmt = java.text.SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+                        val dateStr = dateFmt.format(d)
+                        when {
+                            calMsg.get(Calendar.YEAR) == today.get(Calendar.YEAR) && calMsg.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR) -> "Hoy - $dateStr"
+                            calMsg.get(Calendar.YEAR) == yesterday.get(Calendar.YEAR) && calMsg.get(Calendar.DAY_OF_YEAR) == yesterday.get(Calendar.DAY_OF_YEAR) -> "Ayer - $dateStr"
+                            else -> dateStr
+                        }
+                } catch (e: Exception) {
+                    summary.date
+                }
+                header.text = headerText
+                header.visibility = android.view.View.VISIBLE
+            } else {
+                header.visibility = android.view.View.GONE
+            }
             binding.textViewDate.text = summary.date
             binding.textViewMessageCount.text = "${summary.messageCount} mensajes"
             binding.textViewSummary.text = summary.summary

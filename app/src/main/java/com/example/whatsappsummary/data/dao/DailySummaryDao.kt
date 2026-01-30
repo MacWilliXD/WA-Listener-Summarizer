@@ -11,6 +11,12 @@ interface DailySummaryDao {
     
     @Query("SELECT * FROM daily_summaries WHERE chatId = :chatId AND date >= :startDate AND date <= :endDate ORDER BY timestamp ASC")
     suspend fun getSummariesByDateRange(chatId: String, startDate: String, endDate: String): List<DailySummary>
+
+    @Query("SELECT * FROM daily_summaries WHERE chatId = :chatId ORDER BY timestamp ASC")
+    suspend fun getSummariesListByChatId(chatId: String): List<DailySummary>
+
+    @Query("SELECT * FROM daily_summaries WHERE chatId = :chatId AND timestamp >= :startTs AND timestamp <= :endTs ORDER BY timestamp DESC")
+    suspend fun getSummariesByTimestampRange(chatId: String, startTs: Long, endTs: Long): List<DailySummary>
     
     @Query("SELECT * FROM daily_summaries WHERE chatId = :chatId AND date = :date")
     suspend fun getSummaryByDate(chatId: String, date: String): DailySummary?

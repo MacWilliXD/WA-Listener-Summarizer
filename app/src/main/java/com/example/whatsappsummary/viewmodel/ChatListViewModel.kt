@@ -8,6 +8,8 @@ import com.example.whatsappsummary.data.AppDatabase
 import com.example.whatsappsummary.data.entity.Chat
 import com.example.whatsappsummary.repository.WhatsAppRepository
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 
 class ChatListViewModel(application: Application) : AndroidViewModel(application) {
     private val repository: WhatsAppRepository
@@ -29,5 +31,12 @@ class ChatListViewModel(application: Application) : AndroidViewModel(application
     
     fun resetUnreadCount(chatId: String) = viewModelScope.launch {
         repository.resetUnreadCount(chatId)
+    }
+
+    fun fetchAllPackages(onResult: (List<String>) -> Unit) {
+        viewModelScope.launch {
+            val pkgs = withContext(Dispatchers.IO) { repository.getAllPackages() }
+            onResult(pkgs)
+        }
     }
 }
