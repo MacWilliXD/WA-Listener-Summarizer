@@ -20,6 +20,9 @@ class WhatsAppNotificationListener : NotificationListenerService() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private lateinit var database: AppDatabase
+    // Map to track recent notifications to avoid duplicate processing: signature -> timestamp
+    private val recentNotifications = mutableMapOf<String, Long>()
+    private val recentLock = Any()
     
     companion object {
         private const val TAG = "WANotificationListener"
@@ -173,6 +176,25 @@ class WhatsAppNotificationListener : NotificationListenerService() {
         }
     }
 
+    private fun isRecentDuplicate(signature: String, windowMs: Long = 5_000L): Boolean {
+        val now = System.currentTimeMillis()
+        synchronized(recentLock) {
+            // remove old entries older than 60s to keep map small
+            val cutoff = now - 60_000L
+            val it = recentNotifications.entries.iterator()
+            while (it.hasNext()) {
+                if (it.next().value < cutoff) it.remove()
+            }
+
+            val existing = recentNotifications[signature]
+            if (existing != null && now - existing <= windowMs) {
+                return true
+            }
+            recentNotifications[signature] = now
+            return false
+        }
+    }
+
     private suspend fun saveOtherNotification(packageName: String, title: String, text: String) {
         val timestamp = System.currentTimeMillis()
 
@@ -185,7 +207,19 @@ class WhatsAppNotificationListener : NotificationListenerService() {
 
         // Use senderName as app name
         val senderName = packageName
-        val actualMessage = if (text.isNotEmpty()) text else "(sin contenido)"
+        val actualMessage = text.trim()
+        if (actualMessage.isEmpty()) return
+
+        // Evitar procesar notificaciones idénticas muy recientes
+        try {
+            val sig = "$finalChatId|$senderName|${'$'}{actualMessage.lowercase(Locale.getDefault())}"
+            if (isRecentDuplicate(sig)) {
+                Log.d(TAG, "Recent duplicate other-notification skipped: $sig")
+                return
+            }
+        } catch (e: Exception) {
+            // ignore
+        }
 
         var chat = database.chatDao().getChatById(finalChatId)
         if (chat == null) {
@@ -272,7 +306,19 @@ class WhatsAppNotificationListener : NotificationListenerService() {
         val actualMessage = if (isGroup && messageText.contains(":")) {
             messageText.substringAfter(":").trim()
         } else {
-            messageText
+            messageText.trim()
+        }
+        if (actualMessage.isEmpty()) return
+
+        // Evitar procesar notificaciones idénticas muy recientes
+        try {
+            val sig = "$chatId|$senderName|${'$'}{actualMessage.lowercase(Locale.getDefault())}"
+            if (isRecentDuplicate(sig)) {
+                Log.d(TAG, "Recent duplicate whatsapp-notification skipped: $sig")
+                return
+            }
+        } catch (e: Exception) {
+            // ignore
         }
 
         // Verificar o crear el chat

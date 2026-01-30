@@ -40,7 +40,23 @@ class WhatsAppRepository(
     suspend fun getMessagesByDateRange(chatId: String, startTime: Long, endTime: Long): List<Message> =
         messageDao.getMessagesByDateRange(chatId, startTime, endTime)
     
-    suspend fun insertMessage(message: Message) = messageDao.insertMessage(message)
+    suspend fun insertMessage(message: Message) {
+        val textTrimmed = message.messageText.trim()
+        if (textTrimmed.isEmpty() || textTrimmed.equals("(sin contenido)", ignoreCase = true)) return
+        val toInsert = if (textTrimmed != message.messageText) message.copy(messageText = textTrimmed) else message
+        // Si los últimos 3 mensajes del chat son idénticos al mensaje a insertar, omitir
+        try {
+            val lastThree = messageDao.getLastMessages(toInsert.chatId, 3)
+            if (lastThree.size >= 3) {
+                val allEqual = lastThree.all { it.messageText.trim().equals(textTrimmed, ignoreCase = true) }
+                if (allEqual) return
+            }
+        } catch (e: Exception) {
+            // Si falla la consulta, no bloqueamos la inserción; continuar normalmente
+        }
+
+        messageDao.insertMessage(toInsert)
+    }
     
     suspend fun deleteMessage(message: Message) = messageDao.deleteMessage(message)
     

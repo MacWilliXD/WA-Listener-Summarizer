@@ -1,12 +1,22 @@
 package com.example.whatsappsummary.ui
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
+import android.content.Context
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.NotificationCompat
+import androidx.core.app.NotificationManagerCompat
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.example.whatsappsummary.data.entity.Chat
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.whatsappsummary.databinding.ActivityMainBinding
@@ -33,6 +43,7 @@ class MainActivity : AppCompatActivity() {
         setupObservers()
         setupFab()
         setupFilterFab()
+        setupSummarizeFab()
         
         checkNotificationPermission()
     }
@@ -88,6 +99,49 @@ class MainActivity : AppCompatActivity() {
     private fun setupFilterFab() {
         binding.fabFilter.setOnClickListener {
             showFilterDialogMain()
+        }
+    }
+
+    private fun setupSummarizeFab() {
+        binding.fabSummarizeAll.setOnClickListener {
+            generateAggregateSummaryForToday()
+        }
+    }
+
+    private fun generateAggregateSummaryForToday() {
+        if (fullChats.isEmpty()) {
+            Toast.makeText(this, "No hay chats para resumir", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        binding.fabSummarizeAll.isEnabled = false
+        Toast.makeText(this, "Generando resumen general del día...", Toast.LENGTH_SHORT).show()
+
+        lifecycleScope.launch {
+            val db = com.example.whatsappsummary.data.AppDatabase.getDatabase(applicationContext)
+            val repo = com.example.whatsappsummary.repository.WhatsAppRepository(db.chatDao(), db.messageDao(), db.dailySummaryDao())
+            val generator = com.example.whatsappsummary.util.SummaryGenerator(application, repo)
+
+            try {
+                val chatIds = fullChats.map { it.chatId }
+                val summary = withContext(Dispatchers.IO) { generator.generateSummaryForChats(chatIds) }
+
+                // Mostrar en diálogo grande el resumen agregado
+                val dialog = AlertDialog.Builder(this@MainActivity)
+                    .setTitle("Resumen general del día")
+                    .setMessage(summary)
+                    .setPositiveButton("Cerrar", null)
+                    .create()
+                dialog.show()
+            } catch (e: Exception) {
+                AlertDialog.Builder(this@MainActivity)
+                    .setTitle("Error")
+                    .setMessage("No se pudo generar el resumen: ${e.message}")
+                    .setPositiveButton("Cerrar", null)
+                    .show()
+            } finally {
+                binding.fabSummarizeAll.isEnabled = true
+            }
         }
     }
 

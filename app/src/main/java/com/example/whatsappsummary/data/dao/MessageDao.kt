@@ -30,6 +30,18 @@ interface MessageDao {
     @Query("SELECT COUNT(*) FROM messages WHERE chatId = :chatId AND messageText = :messageText AND timestamp = :timestamp")
     suspend fun countExactMessage(chatId: String, messageText: String, timestamp: Long): Int
 
+    @Query("SELECT * FROM messages WHERE chatId = :chatId ORDER BY timestamp DESC LIMIT :limit")
+    suspend fun getLastMessages(chatId: String, limit: Int): List<Message>
+
     @Query("UPDATE messages SET chatId = :newChatId WHERE chatId = :oldChatId")
     suspend fun moveMessagesToChat(oldChatId: String, newChatId: String)
+
+    @Query("DELETE FROM messages WHERE TRIM(messageText) = '' OR LOWER(TRIM(messageText)) = '(sin contenido)'")
+    suspend fun deleteEmptyOrPlaceholderMessages(): Int
+
+    @Query("SELECT * FROM messages WHERE chatId = :chatId ORDER BY timestamp ASC")
+    suspend fun getMessagesByChatOrdered(chatId: String): List<Message>
+
+    @Query("DELETE FROM messages WHERE id IN (:ids)")
+    suspend fun deleteMessagesByIds(ids: List<Long>)
 }

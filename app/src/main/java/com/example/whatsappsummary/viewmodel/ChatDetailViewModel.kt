@@ -236,13 +236,9 @@ class ChatDetailViewModel(application: Application) : AndroidViewModel(applicati
                 try {
                     val generator = com.example.whatsappsummary.util.SummaryGenerator(getApplication(), repository)
                     finalSummaryText = withContext(Dispatchers.IO) { generator.generateDailySummary(cid) }
-                    if (finalSummaryText.isNullOrBlank()) {
-                        finalSummaryText = generateLocalSummary(visible)
-                        android.util.Log.d("ChatDetailVM", "Resumen API vacío, usando local fallback")
-                    }
                 } catch (e: Exception) {
-                    android.util.Log.e("ChatDetailVM", "Error usando SummaryGenerator, fallback local", e)
-                    finalSummaryText = try { generateLocalSummary(visible) } catch (ex: Exception) { "Error generando resumen: ${ex.message}" }
+                    android.util.Log.e("ChatDetailVM", "Error usando SummaryGenerator", e)
+                    finalSummaryText = "ERROR interno: ${e.message}"
                 }
 
             android.util.Log.d("ChatDetailVM", "Insertando resumen final para $cid: ${finalSummaryText?.take(300)}...")

@@ -41,7 +41,7 @@ class SummaryGenerator(
 
 			// Forzar uso de UNA sola API key y UN solo modelo (según petición del usuario)
 			val key = "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"
-			val model = "qwen/qwen3-next-80b-a3b-instruct:free"
+			val model = "arcee-ai/trinity-large-preview:free"
 			try {
 				val resp = callChatCompletionApi(key, model, systemPrompt, userContent)
 				if (!resp.isNullOrBlank()) {
@@ -50,6 +50,58 @@ class SummaryGenerator(
 					// Post-procesado local: detectar acciones y urgencia en los mensajes
 					val actions = extractActionItems(messages)
 					val urgent = detectUrgency(messages)
+
+					if (urgent && !finalResp.startsWith("URGENTE!!", ignoreCase = true)) {
+						finalResp = "URGENTE!!\n" + finalResp
+					}
+
+					if (actions.isNotEmpty() && !finalResp.contains("Acciones:", ignoreCase = true)) {
+						val actionsText = actions.joinToString("\n") { "- $it" }
+						finalResp = "$finalResp\n\nAcciones:\n$actionsText"
+					}
+
+					return@withContext finalResp
+				}
+			} catch (e: Exception) {
+				// fallo
+			}
+
+			return@withContext "ERROR: No se pudo generar resumen con la clave/modelo proporcionado."
+		} catch (e: Exception) {
+			return@withContext "ERROR interno: ${e.message}"
+		}
+	}
+
+	/**
+	 * Genera un resumen agregando mensajes de varios chats (rango: hoy).
+	 */
+	suspend fun generateSummaryForChats(chatIds: List<String>): String = withContext(Dispatchers.IO) {
+		try {
+			val (startOfDay, endOfDay) = todayRange()
+			val allMessages = mutableListOf<com.example.whatsappsummary.data.entity.Message>()
+			for (cid in chatIds) {
+				try {
+					val msgs = repository.getMessagesByDateRange(cid, startOfDay, endOfDay)
+					allMessages.addAll(msgs)
+				} catch (e: Exception) {
+					// ignorar chat si falla
+				}
+			}
+			if (allMessages.isEmpty()) return@withContext "No hay mensajes hoy en ningún chat."
+
+			val systemPrompt = buildSystemPrompt()
+			val userContent = buildUserContent(allMessages.sortedBy { it.timestamp })
+
+			// Forzar uso de UNA sola API key y UN solo modelo (igual que generateDailySummary)
+			val key = "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"
+			val model = "arcee-ai/trinity-large-preview:free"
+			try {
+				val resp = callChatCompletionApi(key, model, systemPrompt, userContent)
+				if (!resp.isNullOrBlank()) {
+					var finalResp = resp.trim()
+
+					val actions = extractActionItems(allMessages)
+					val urgent = detectUrgency(allMessages)
 
 					if (urgent && !finalResp.startsWith("URGENTE!!", ignoreCase = true)) {
 						finalResp = "URGENTE!!\n" + finalResp
@@ -87,10 +139,11 @@ class SummaryGenerator(
 		val sb = StringBuilder()
 		sb.append("Mensajes del día:\n")
 		for (m in messages) {
+			val textRaw = m.messageText?.trim()
+			if (textRaw.isNullOrEmpty() || textRaw.equals("(sin contenido)", ignoreCase = true)) continue
 			val time = df.format(Date(m.timestamp))
 			val sender = m.senderName ?: "(desconocido)"
-			val text = m.messageText ?: ""
-			sb.append("[").append(time).append("] ").append(sender).append(": ").append(text).append("\n")
+			sb.append("[").append(time).append("] ").append(sender).append(": ").append(textRaw).append("\n")
 		}
 		return sb.toString()
 	}
@@ -106,7 +159,9 @@ Si detectas actividades, pedidos o tareas solicitadas en los mensajes, enlista e
 	private fun detectUrgency(messages: List<com.example.whatsappsummary.data.entity.Message>): Boolean {
 		val urgentKeywords = listOf("urgente", "asap", "lo antes posible", "necesito", "necesitamos", "con prioridad", "urgencia", "prioridad")
 		for (m in messages) {
-			val txt = (m.messageText ?: "").toLowerCase(Locale.getDefault())
+			val txtRaw = m.messageText?.trim()
+			if (txtRaw.isNullOrEmpty() || txtRaw.equals("(sin contenido)", ignoreCase = true)) continue
+			val txt = txtRaw.toLowerCase(Locale.getDefault())
 			for (k in urgentKeywords) if (txt.contains(k)) return true
 		}
 		return false
@@ -116,11 +171,11 @@ Si detectas actividades, pedidos o tareas solicitadas en los mensajes, enlista e
 		val actionKeywords = listOf("por favor", "favor de", "necesito", "necesitamos", "enviar", "revisar", "asignar", "hacer", "entregar", "reservar", "confirmar", "llamar", "contactar", "agendar", "programar", "pedir", "pedido", "tarea", "pendiente")
 		val actions = mutableListOf<String>()
 		for (m in messages) {
-			val txt = (m.messageText ?: "").trim()
+			val txt = m.messageText?.trim()
+			if (txt.isNullOrEmpty() || txt.equals("(sin contenido)", ignoreCase = true)) continue
 			val low = txt.toLowerCase(Locale.getDefault())
 			for (k in actionKeywords) {
 				if (low.contains(k)) {
-					// Truncar a la frase principal (hasta punto o fin)
 					val sentence = txt.split(Regex("[\\.\\!\\?]")).firstOrNull()?.trim() ?: txt
 					val sender = m.senderName ?: "(desconocido)"
 					actions.add("${sender}: ${sentence}")
