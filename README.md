@@ -1,50 +1,65 @@
+<div align="center">
+
 # WA-Listener-Summarizer
 
-![Logo](https://img.shields.io/badge/Android-8%2B-brightgreen?style=flat-square) ![Kotlin](https://img.shields.io/badge/Kotlin-Android-blue?style=flat-square) ![Room](https://img.shields.io/badge/Room-Database-orange?style=flat-square)
+### Resumen diario de notificaciones (WhatsApp)
 
-**WA-Listener-Summarizer** es una app Android que escucha notificaciones (principalmente WhatsApp), las persiste localmente y genera resúmenes diarios usando un modelo de IA. Está pensada para uso personal y privado: todos los datos permanecen en el dispositivo.
+![Android](https://img.shields.io/badge/Android-8%2B-brightgreen?style=for-the-badge) ![Kotlin](https://img.shields.io/badge/Kotlin-Android-blue?style=for-the-badge) ![Room](https://img.shields.io/badge/Room-Database-orange?style=for-the-badge)
+
+</div>
+
+---
+
+## 📋 Descripción
+
+WA-Listener-Summarizer es una aplicación Android que captura notificaciones (principalmente de WhatsApp), las guarda localmente y genera resúmenes diarios usando un servicio de chat/IA. Está diseñada para uso personal: los datos permanecen en tu dispositivo.
+
+La intención principal es permitir revisar rápidamente el día en forma de resúmenes periódicos sin necesidad de abrir cada chat.
 
 ---
 
 ## ✨ Características principales
 
-- Escucha y almacena notificaciones (WhatsApp y otras apps opcionales).
-- Lista de chats con contador de mensajes no leídos y vista de mensajes por chat.
-- Generación de resúmenes diarios por chat (usando una API de chat/completions) y opción para resumen agregado del día.
-- Filtrado por fechas y búsqueda de texto en mensajes y resúmenes.
-- Limpieza automática de mensajes vacíos o repetidos y deduplicación en la captura.
-- Todo se guarda localmente en Room Database (sin subir datos a servidores externos).
+- Captura de notificaciones con `NotificationListenerService`.
+- Agrupación por chat (`package|chatTitle`) y persistencia en Room (entidades `Chat`, `Message`, `DailySummary`).
+- Heurísticas para evitar persistir mensajes vacíos, placeholders y duplicados.
+- Generación de resúmenes diarios por chat mediante `SummaryGenerator` (llamadas a API de chat/completions).
+- Botón en pantalla principal para generar un resumen agregado del día (todos los chats) y mostrarlo en un diálogo.
+- Limpieza automática (una vez) de mensajes vacíos y duplicados históricos.
 
 ---
 
-## Cómo funciona (resumen técnico)
+## 🛠️ Cómo funciona (visión técnica)
 
-- Un servicio `NotificationListenerService` captura notificaciones y extrae título/texto.
-- Las notificaciones se normalizan y se agrupan por `chatId` (ej. `package|chatTitle`).
-- `Message` y `Chat` se guardan en una base Room; hay heurísticas para evitar duplicados y mensajes vacíos.
-- `SummaryGenerator` arma un prompt con los mensajes del día y llama a una API de chat para generar el resumen.
-- La UI muestra chats y permite generar manualmente resúmenes; también se puede generar un resumen agregado para todos los chats del día.
+- `WhatsAppNotificationListener` escucha notificaciones y extrae título/texto.
+- Se normalizan y filtran textos (eliminación de contadores como "(3 mensajes)").
+- `Message` se guarda en Room si pasa las comprobaciones (no vacío, no placeholder, no duplicado reciente, etc.).
+- `SummaryGenerator` construye un prompt con los mensajes del día y llama a la API para generar un resumen; existen funciones para resumen por chat y para resumen agregado que toma mensajes de todos los chats del día.
+- UI: `MainActivity` muestra la lista de chats y permite generar el resumen agregado del día.
 
 ---
 
-## Configuración: API Key y modelo para `SummaryGenerator`
+## ⚙️ Configuración: API Key y Modelo
 
-Por simplicidad en la versión actual, `SummaryGenerator` contiene variables locales donde se establece la API key y el modelo a usar. Para cambiar la clave o el modelo edita el archivo:
+En la versión actual el `SummaryGenerator` incluye variables locales `key` y `model` dentro de `generateDailySummary(...)` y `generateSummaryForChats(...)`.
 
-- `app/src/main/java/com/example/whatsappsummary/util/SummaryGenerator.kt`
+Editar esas variables:
 
-Busca las líneas dentro de los métodos `generateDailySummary(...)` y `generateSummaryForChats(...)` donde se definen `key` y `model`. Por ejemplo:
+- Archivo: `app/src/main/java/com/example/whatsappsummary/util/SummaryGenerator.kt`
+- Líneas de interés: dentro de `generateDailySummary` y `generateSummaryForChats` busca `val key =` y `val model =`.
+
+Ejemplo:
 
 - `val key = "sk-or-..."`
 - `val model = "arcee-ai/trinity-large-preview:free"`
 
-Reemplaza `key` por tu API key y `model` por el identificador del modelo que quieras usar. Opcionalmente puedes implementar la lectura desde `SharedPreferences` usando el método `loadApiKeysFromPrefs()` ya incluido.
+Reemplaza `key` por tu API key y `model` por el identificador del modelo que prefieras. Mantén estas claves privadas y evita subirlas a repositorios públicos.
 
-IMPORTANTE: Mantén tus claves en privado y evita incluirlas en repositorios públicos.
+Consejo: para mayor seguridad y flexibilidad, considera mover estas configuraciones a `SharedPreferences` o a un archivo de ajustes en la app (puedo implementarlo si lo deseas).
 
 ---
 
-## Instalación y ejecución
+## 🚀 Instalación y ejecución
 
 1. Clona el repositorio:
 
@@ -52,49 +67,75 @@ IMPORTANTE: Mantén tus claves en privado y evita incluirlas en repositorios pú
 git clone https://github.com/tuusuario/WA-Listener-Summarizer.git
 ```
 
-2. Abre el proyecto en Android Studio (Recomendado: Android Studio Arctic Fox o superior).
+2. Abre el proyecto en Android Studio.
 3. Conecta un dispositivo Android 8.0+ o usa un emulador con API >= 26.
-4. Ejecuta la app; concede permiso de acceso a notificaciones cuando se solicite.
+4. Ejecuta la app y concede permiso de acceso a notificaciones cuando se solicite.
 
 Pruebas rápidas:
 
-- Envía notificaciones de WhatsApp al dispositivo y verifica que aparecen en la lista.
-- Pulsa el botón central en la pantalla principal para generar el resumen general del día.
+- Envía notificaciones de WhatsApp al dispositivo para comprobar captura.
+- Pulsa el botón central en la pantalla principal para generar el resumen agregado del día.
 
 ---
 
-## Desarrollo y estructura del código
+## 📁 Estructura del proyecto (resumen)
 
-- `service/WhatsAppNotificationListener.kt`: captura y normaliza notificaciones.
-- `data/`: entidades Room (`Chat`, `Message`, `DailySummary`), DAOs y `AppDatabase`.
-- `repository/WhatsAppRepository.kt`: capa de acceso a datos.
-- `util/SummaryGenerator.kt`: construye prompt y llama a la API para generar resúmenes.
-- `ui/`: Activities, Adapters y layouts para la interfaz.
-
-Si contribuyes, procura seguir el estilo Kotlin/Android del proyecto y añade tests si haces cambios relevantes.
-
----
-
-## Privacidad
-
-La app guarda todo localmente y no envía mensajes ni metadatos a servidores externos (a menos que configures una API key para el generador de resúmenes, que sí se usa para llamadas desde el dispositivo a la API que elijas).
+```
+app/src/main/java/com/example/whatsappsummary/
+├── service/                    # NotificationListenerService
+│   └── WhatsAppNotificationListener.kt
+├── data/                       # Room entities, DAOs, AppDatabase
+├── repository/                 # WhatsAppRepository (capa de datos)
+├── util/                       # SummaryGenerator.kt (IA prompts)
+└── ui/                         # Activities, Adapters y layouts
+```
 
 ---
 
-## Contribuciones
+## 🔒 Privacidad
 
-Pull requests y issues son bienvenidos. Si vas a contribuir con cambios que afecten la privacidad o el manejo de datos, por favor documenta el comportamiento en la descripción del PR.
+Los mensajes y metadatos se almacenan localmente en la base de datos del dispositivo. La app no envía datos a servidores externos por defecto; la única comunicación externa posible es la llamada a la API de chat para generar resúmenes (si configuras una API key).
 
 ---
 
-## Licencia
+## 🧰 Tecnologías
 
-MIT License — consulta el archivo `LICENSE` si lo agregas al repo.
+- Kotlin (Android)
+- Room Database
+- ViewModel, LiveData (MVVM)
+- Material Design, RecyclerView, ConstraintLayout
+
+---
+
+## ♻️ Mantenimiento y limpieza
+
+- La base `AppDatabase` ejecuta una limpieza inicial (una vez) para eliminar placeholders y duplicados históricos.
+- Se aplican varias defensas contra duplicados en `WhatsAppNotificationListener` y `WhatsAppRepository` (filtros por ventana temporal y comparación de últimos mensajes).
+
+---
+
+## 🤝 Contribuciones
+
+Si deseas contribuir:
+
+1. Haz fork del proyecto.
+2. Crea una rama para tu feature (`git checkout -b feature/mi-feature`).
+3. Envía un PR con descripción y pruebas si aplica.
+
+Por favor documenta cualquier cambio que afecte la privacidad o persistencia de datos.
+
+---
+
+## 📄 Licencia
+
+MIT — añade un archivo `LICENSE` si quieres dejarlo explícito.
 
 ---
 
 ## Autor
 
-- [MacWilliXD](https://github.com/MacWilliXD)
+- MacWilliXD
 
-Si quieres, puedo también actualizar `SummaryGenerator` para leer la clave y el modelo desde ajustes de la app en vez de variables hardcodeadas. ¿Deseas que lo haga?
+---
+
+¿Quieres que mueva la configuración de `key`/`model` a ajustes (`SharedPreferences`) y un panel simple en la UI para administrarlas? Puedo implementarlo.
