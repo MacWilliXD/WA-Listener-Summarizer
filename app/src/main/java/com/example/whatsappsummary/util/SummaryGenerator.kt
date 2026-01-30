@@ -40,7 +40,7 @@ class SummaryGenerator(
 			val userContent = buildUserContent(messages)
 
 			// Forzar uso de UNA sola API key y UN solo modelo (según petición del usuario)
-			val key = "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"
+			val key = "APIKEY"
 			val model = "arcee-ai/trinity-large-preview:free"
 			try {
 				val resp = callChatCompletionApi(key, model, systemPrompt, userContent)
@@ -93,7 +93,7 @@ class SummaryGenerator(
 			val userContent = buildUserContent(allMessages.sortedBy { it.timestamp })
 
 			// Forzar uso de UNA sola API key y UN solo modelo (igual que generateDailySummary)
-			val key = "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"
+			val key = "APIKEY"
 			val model = "arcee-ai/trinity-large-preview:free"
 			try {
 				val resp = callChatCompletionApi(key, model, systemPrompt, userContent)
