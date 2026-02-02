@@ -53,7 +53,7 @@ class SummaryGenerator(
                 val systemPrompt = buildSystemPrompt(detailLevel, extraPrompt)
                 val userContent = buildUserContent(messages)
                 try {
-                    val key = " YOUR API KEY"
+                    val key = "YOUR API KEY"
                     val model = "arcee-ai/trinity-large-preview:free"
                     val resp = callChatCompletionApi(key, model, systemPrompt, userContent, summaryLength)
                     if (!resp.isNullOrBlank()) {
@@ -77,7 +77,7 @@ class SummaryGenerator(
                 val systemPrompt = buildSystemPrompt(detailLevel, extraPrompt)
                 val userContent = buildUserContentFromNotifications(notifications)
                 try {
-                    val key = " YOUR API KEY"
+                    val key = "YOUR API KEY"
                     val model = "arcee-ai/trinity-large-preview:free"
                     val resp = callChatCompletionApi(key, model, systemPrompt, userContent, summaryLength)
                     if (!resp.isNullOrBlank()) {
@@ -125,7 +125,7 @@ class SummaryGenerator(
             val systemPrompt = buildSystemPrompt(detailLevel, extraPrompt)
             val userContent = buildUserContent(allMessages.sortedBy { it.timestamp })
 
-            val key = " YOUR API KEY"
+            val key = "YOUR API KEY"
             val model = "arcee-ai/trinity-large-preview:free"
             try {
                 val resp = callChatCompletionApi(key, model, systemPrompt, userContent, summaryLength)

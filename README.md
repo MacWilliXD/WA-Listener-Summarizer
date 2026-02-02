@@ -112,8 +112,8 @@ git clone https://github.com/tuusuario/Notirizer.git
 
 Si quieres probar la app sin configurar Android Studio, puedes descargar el APK de debug desde el directorio del proyecto:
 
-1. Ve al directorio `app/build/outputs/apk/debug/`
-2. Descarga el archivo [app-debug.apk](app/build/outputs/apk/debug/app-debug.apk)
+1. Ve al directorio `APK/`
+2. Descarga el archivo [app-debug.apk](APK/app-debug.apk)
 3. Transfiere el APK a tu dispositivo Android
 4. En tu dispositivo, ve a Ajustes > Seguridad > Instalar apps de fuentes desconocidas (habilita para tu navegador o administrador de archivos)
 5. Abre el APK descargado e instala
