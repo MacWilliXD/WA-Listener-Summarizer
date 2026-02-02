@@ -9,9 +9,11 @@ import android.widget.ArrayAdapter
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.ViewModelProvider
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.whatsappsummary.databinding.ActivityDashboardBinding
 import com.example.whatsappsummary.ui.adapter.AppStatsAdapter
+import com.example.whatsappsummary.ui.dialog.AppOptionsDialog
 import com.example.whatsappsummary.viewmodel.DashboardViewModel
 import com.github.mikephil.charting.charts.LineChart
 import com.github.mikephil.charting.charts.PieChart
@@ -25,6 +27,7 @@ import com.github.mikephil.charting.formatter.IValueFormatter
 import com.github.mikephil.charting.utils.ViewPortHandler
 import java.text.SimpleDateFormat
 import java.util.*
+import kotlinx.coroutines.launch
 
 class DashboardActivity : AppCompatActivity() {
 
@@ -34,6 +37,8 @@ class DashboardActivity : AppCompatActivity() {
     private var selectedPackage: String = "all"
     private var selectedRange: Int = 7 // días
     private var selectedPieRange: Int = 7 // días para el PieChart
+    private var selectedTopAppsLimit: Int = 10 // límite de aplicaciones a mostrar en lista
+    private var selectedPieTopAppsLimit: Int = 10 // límite de aplicaciones a mostrar en pie chart
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -53,14 +58,19 @@ class DashboardActivity : AppCompatActivity() {
     }
 
     private fun setupRecyclerView() {
-        adapter = AppStatsAdapter { appStats ->
-            // Navegar a la lista de chats filtrada por aplicación
-            val intent = Intent(this, MainActivity::class.java).apply {
-                putExtra("FILTER_PACKAGE", appStats.packageName)
-                putExtra("FILTER_APP_NAME", appStats.appName ?: appStats.packageName)
+        adapter = AppStatsAdapter(
+            onAppClick = { appStats ->
+                // Navegar a la lista de chats filtrada por aplicación
+                val intent = Intent(this, MainActivity::class.java).apply {
+                    putExtra("FILTER_PACKAGE", appStats.packageName)
+                    putExtra("FILTER_APP_NAME", appStats.appName ?: appStats.packageName)
+                }
+                startActivity(intent)
+            },
+            onAppLongClick = { appStats ->
+                showAppOptionsDialog(appStats)
             }
-            startActivity(intent)
-        }
+        )
         adapter.setPackageManager(packageManager)
 
         binding.recyclerTopApps.apply {
@@ -120,6 +130,10 @@ class DashboardActivity : AppCompatActivity() {
         pieRangeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         binding.spinnerPieRange.adapter = pieRangeAdapter
         binding.spinnerPieRange.setSelection(1) // Última semana por defecto
+        
+        // Cargar datos iniciales del PieChart
+        viewModel.loadPieChartData(selectedPieRange)
+        
         binding.spinnerPieRange.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 selectedPieRange = when (position) {
@@ -131,6 +145,31 @@ class DashboardActivity : AppCompatActivity() {
                     else -> 7
                 }
                 viewModel.loadPieChartData(selectedPieRange)
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+        
+        // Spinner para límite de aplicaciones en PieChart
+        val pieTopAppsLimits = arrayOf("Top 5", "Top 10", "Top 15", "Top 30", "Todos")
+        val pieTopAppsAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, pieTopAppsLimits)
+        pieTopAppsAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        binding.spinnerPieTopApps.adapter = pieTopAppsAdapter
+        binding.spinnerPieTopApps.setSelection(1) // Top 10 por defecto
+        binding.spinnerPieTopApps.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                selectedPieTopAppsLimit = when (position) {
+                    0 -> 5
+                    1 -> 10
+                    2 -> 15
+                    3 -> 30
+                    4 -> Int.MAX_VALUE // Todos
+                    else -> 10
+                }
+                // Actualizar solo el PieChart con el nuevo límite
+                viewModel.pieChartData.value?.let { appStats ->
+                    val limitedStats = if (selectedPieTopAppsLimit == Int.MAX_VALUE) appStats else appStats.take(selectedPieTopAppsLimit)
+                    setupPieChart(limitedStats)
+                }
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
@@ -150,6 +189,31 @@ class DashboardActivity : AppCompatActivity() {
                     else -> 7
                 }
                 viewModel.loadLineChartData(selectedPackage, selectedRange)
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+        
+        // Spinner para límite de aplicaciones mostradas
+        val topAppsLimits = arrayOf("Top 5", "Top 10", "Top 15", "Top 30", "Todos")
+        val topAppsAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, topAppsLimits)
+        topAppsAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        binding.spinnerTopApps.adapter = topAppsAdapter
+        binding.spinnerTopApps.setSelection(1) // Top 10 por defecto
+        binding.spinnerTopApps.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                selectedTopAppsLimit = when (position) {
+                    0 -> 5
+                    1 -> 10
+                    2 -> 15
+                    3 -> 30
+                    4 -> Int.MAX_VALUE // Todos
+                    else -> 10
+                }
+                // Actualizar solo la lista con el nuevo límite
+                viewModel.notificationsByApp.value?.let { appStats ->
+                    val limitedStats = if (selectedTopAppsLimit == Int.MAX_VALUE) appStats else appStats.take(selectedTopAppsLimit)
+                    adapter.submitList(limitedStats)
+                }
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
@@ -176,7 +240,7 @@ class DashboardActivity : AppCompatActivity() {
             return
         }
 
-        val entries = appStats.take(10).map { stat ->
+        val entries = appStats.map { stat ->
             PieEntry(stat.notificationCount.toFloat(), stat.appName ?: stat.packageName)
         }
 
@@ -246,7 +310,9 @@ class DashboardActivity : AppCompatActivity() {
         }
 
         viewModel.notificationsByApp.observe(this) { appStats ->
-            adapter.submitList(appStats)
+            // Aplicar el límite seleccionado
+            val limitedStats = if (selectedTopAppsLimit == Int.MAX_VALUE) appStats else appStats.take(selectedTopAppsLimit)
+            adapter.submitList(limitedStats)
             
             // Actualizar spinner de apps
             val packageNames = appStats.map { it.packageName }
@@ -254,7 +320,9 @@ class DashboardActivity : AppCompatActivity() {
         }
 
         viewModel.pieChartData.observe(this) { appStats ->
-            setupPieChart(appStats)
+            // Aplicar el límite seleccionado para el PieChart
+            val limitedStats = if (selectedPieTopAppsLimit == Int.MAX_VALUE) appStats else appStats.take(selectedPieTopAppsLimit)
+            setupPieChart(limitedStats)
         }
 
         viewModel.lineChartData.observe(this) { dailyData ->
@@ -263,6 +331,14 @@ class DashboardActivity : AppCompatActivity() {
     }
 
     private fun setupButtons() {
+        binding.buttonRefresh.setOnClickListener {
+            // Recargar todos los datos del dashboard
+            viewModel.loadDashboardData()
+            viewModel.loadPieChartData(selectedPieRange)
+            viewModel.loadLineChartData(selectedPackage, selectedRange)
+            Toast.makeText(this, "Dashboard actualizado", Toast.LENGTH_SHORT).show()
+        }
+
         binding.buttonViewChats.setOnClickListener {
             // Navegar a la vista de lista de chats sin filtro
             val intent = Intent(this, MainActivity::class.java)
@@ -270,9 +346,42 @@ class DashboardActivity : AppCompatActivity() {
         }
     }
 
+    private fun showAppOptionsDialog(appStats: com.example.whatsappsummary.viewmodel.AppNotificationStats) {
+        val dialog = AppOptionsDialog(
+            context = this,
+            appStats = appStats,
+            onDelete = {
+                // Ejecutar la eliminación de forma secuencial
+                lifecycleScope.launch {
+                    try {
+                        // Ejecutar la eliminación (ahora es suspend)
+                        viewModel.deleteAppNotifications(appStats.packageName)
+
+                        // Recargar los datos del dashboard para reflejar los cambios
+                        viewModel.loadDashboardData()
+                        // También recargar datos del PieChart
+                        viewModel.loadPieChartData(selectedPieRange)
+
+                        // Mostrar mensaje de confirmación
+                        Toast.makeText(this@DashboardActivity, "Aplicación y sus notificaciones eliminadas", Toast.LENGTH_SHORT).show()
+                    } catch (e: Exception) {
+                        Toast.makeText(this@DashboardActivity, "Error al eliminar: ${e.message}", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            },
+            onIgnoreChanged = { isIgnored ->
+                // Notificar al adapter que los datos han cambiado para actualizar la apariencia visual
+                adapter.notifyDataSetChanged()
+            }
+        )
+        dialog.show()
+    }
+
     override fun onResume() {
         super.onResume()
         // Recargar datos cuando volvemos a la actividad
         viewModel.loadDashboardData()
+        // También recargar datos filtrados del PieChart
+        viewModel.loadPieChartData(selectedPieRange)
     }
 }

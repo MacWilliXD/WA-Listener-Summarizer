@@ -1,16 +1,21 @@
 package com.example.whatsappsummary.ui.adapter
 
+import android.content.Context
+import android.content.SharedPreferences
 import android.content.pm.PackageManager
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
+import com.example.whatsappsummary.R
 import com.example.whatsappsummary.databinding.ItemAppStatsBinding
 import com.example.whatsappsummary.viewmodel.AppNotificationStats
 
 class AppStatsAdapter(
-    private val onAppClick: (AppNotificationStats) -> Unit
+    private val onAppClick: (AppNotificationStats) -> Unit,
+    private val onAppLongClick: (AppNotificationStats) -> Unit
 ) : ListAdapter<AppNotificationStats, AppStatsAdapter.AppStatsViewHolder>(AppStatsDiffCallback()) {
 
     private lateinit var packageManager: PackageManager
@@ -41,12 +46,40 @@ class AppStatsAdapter(
                     onAppClick(getItem(position))
                 }
             }
+
+            binding.root.setOnLongClickListener {
+                val position = adapterPosition
+                if (position != RecyclerView.NO_POSITION) {
+                    onAppLongClick(getItem(position))
+                    true
+                } else {
+                    false
+                }
+            }
         }
 
         fun bind(appStats: AppNotificationStats) {
             binding.textAppName.text = appStats.appName ?: appStats.packageName
             binding.textPackageName.text = appStats.packageName
             binding.textNotificationCount.text = appStats.notificationCount.toString()
+
+            // Verificar si la aplicación está ignorada
+            val context = binding.root.context
+            val prefs = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
+            val isIgnored = prefs.getBoolean("ignore_${appStats.packageName}", false)
+
+            // Cambiar apariencia visual para aplicaciones ignoradas
+            if (isIgnored) {
+                binding.root.alpha = 0.5f
+                binding.textAppName.setTextColor(ContextCompat.getColor(context, R.color.colorTextSecondary))
+                binding.textPackageName.setTextColor(ContextCompat.getColor(context, R.color.colorTextSecondary))
+                binding.textNotificationCount.setTextColor(ContextCompat.getColor(context, R.color.colorTextSecondary))
+            } else {
+                binding.root.alpha = 1.0f
+                binding.textAppName.setTextColor(ContextCompat.getColor(context, R.color.colorTextPrimary))
+                binding.textPackageName.setTextColor(ContextCompat.getColor(context, R.color.colorTextSecondary))
+                binding.textNotificationCount.setTextColor(ContextCompat.getColor(context, R.color.colorTextPrimary))
+            }
 
             // Intentar cargar el icono de la aplicación
             try {

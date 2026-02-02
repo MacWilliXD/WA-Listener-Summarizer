@@ -72,14 +72,21 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                             )
                         }
                         .sortedByDescending { it.notificationCount }
+
                     _notificationsByApp.postValue(appStats)
                 } catch (e: Exception) {
                     // Fallback: lista vacía si hay error
                     _notificationsByApp.postValue(emptyList())
                 }
 
-                // Notificaciones de hoy
-                val todayStart = System.currentTimeMillis() - (24 * 60 * 60 * 1000)
+                // Notificaciones de hoy (desde medianoche hasta ahora)
+                val todayCal = Calendar.getInstance()
+                todayCal.timeInMillis = System.currentTimeMillis()
+                todayCal.set(Calendar.HOUR_OF_DAY, 0)
+                todayCal.set(Calendar.MINUTE, 0)
+                todayCal.set(Calendar.SECOND, 0)
+                todayCal.set(Calendar.MILLISECOND, 0)
+                val todayStart = todayCal.timeInMillis
                 val today = database.notificationDao().getNotificationsSince(todayStart).size
                 _todayNotifications.postValue(today)
             }
@@ -122,7 +129,18 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
             withContext(Dispatchers.IO) {
                 try {
                     val endTime = System.currentTimeMillis()
-                    val startTime = endTime - (daysRange * 24 * 60 * 60 * 1000L)
+                    val startTime = when (daysRange) {
+                        1 -> { // Hoy: desde medianoche hasta ahora
+                            val cal = Calendar.getInstance()
+                            cal.timeInMillis = endTime
+                            cal.set(Calendar.HOUR_OF_DAY, 0)
+                            cal.set(Calendar.MINUTE, 0)
+                            cal.set(Calendar.SECOND, 0)
+                            cal.set(Calendar.MILLISECOND, 0)
+                            cal.timeInMillis
+                        }
+                        else -> endTime - (daysRange * 24 * 60 * 60 * 1000L)
+                    }
                     
                     val notifications = database.notificationDao().getNotificationsByRange(startTime, endTime)
                     val appStats = notifications
@@ -145,9 +163,47 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                         .sortedByDescending { it.notificationCount }
                     
                     _pieChartData.postValue(appStats)
+                    // También actualizar las estadísticas de aplicaciones filtradas por fecha
+                    _notificationsByApp.postValue(appStats)
                 } catch (e: Exception) {
                     _pieChartData.postValue(emptyList())
+                    _notificationsByApp.postValue(emptyList())
                 }
+            }
+        }
+    }
+
+    suspend fun deleteAppNotifications(packageName: String) {
+        withContext(Dispatchers.IO) {
+            try {
+                println("DEBUG: Intentando eliminar notificaciones de la aplicación: '$packageName'")
+
+                // Obtener todas las notificaciones de la aplicación
+                val notificationsToDelete = database.notificationDao().getNotificationsByPackage(packageName)
+                println("DEBUG: Encontradas ${notificationsToDelete.size} notificaciones para eliminar")
+
+                if (notificationsToDelete.isNotEmpty()) {
+                    // Obtener los IDs de las notificaciones
+                    val idsToDelete = notificationsToDelete.map { it.id }
+                    println("DEBUG: IDs a eliminar: $idsToDelete")
+
+                    // Eliminar las notificaciones usando el método existente
+                    database.notificationDao().deleteNotificationsByIds(idsToDelete)
+                    println("DEBUG: Notificaciones eliminadas exitosamente")
+
+                    // Forzar una pequeña pausa para asegurar que Room procese los cambios
+                    Thread.sleep(100)
+                } else {
+                    println("DEBUG: No se encontraron notificaciones para eliminar")
+                }
+
+                // Verificar que se eliminaron
+                val notificationsAfter = database.notificationDao().getNotificationsByPackage(packageName)
+                println("DEBUG: Después de eliminar, quedan ${notificationsAfter.size} notificaciones")
+
+            } catch (e: Exception) {
+                println("DEBUG: Error al eliminar notificaciones: ${e.message}")
+                e.printStackTrace()
             }
         }
     }

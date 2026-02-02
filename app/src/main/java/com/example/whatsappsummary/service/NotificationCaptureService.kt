@@ -85,6 +85,14 @@ class NotificationCaptureService : NotificationListenerService() {
             return
         }
 
+        // Verificar si la aplicación está ignorada
+        val appPrefs = applicationContext.getSharedPreferences("app_prefs", MODE_PRIVATE)
+        val isIgnored = appPrefs.getBoolean("ignore_${packageName}", false)
+        if (isIgnored) {
+            Log.d(TAG, "Skipping notification from ignored app: $packageName")
+            return
+        }
+
         val notification = sbn.notification ?: return
         val extras = notification.extras ?: return
 

@@ -69,4 +69,11 @@ class AppNotificationsActivity : AppCompatActivity() {
             }
         }
     }
+
+    override fun onResume() {
+        super.onResume()
+        // Recargar notificaciones cada vez que se reanuda la actividad
+        // para reflejar cambios (como eliminaciones desde el dashboard)
+        loadNotifications()
+    }
 }

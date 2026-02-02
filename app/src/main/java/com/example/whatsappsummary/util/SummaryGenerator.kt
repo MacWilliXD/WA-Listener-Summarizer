@@ -31,6 +31,10 @@ class SummaryGenerator(
 ) {
     private val urlBase = "https://openrouter.ai/api/v1/chat/completions"
 
+    // Variables globales para API key y model
+    private val defaultApiKey = "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"
+    private val defaultModel = "arcee-ai/trinity-large-preview:free"
+
     suspend fun generateDailySummary(
         chatId: String,
         summaryLength: Int? = null,
@@ -53,8 +57,8 @@ class SummaryGenerator(
                 val systemPrompt = buildSystemPrompt(detailLevel, extraPrompt)
                 val userContent = buildUserContent(messages)
                 try {
-                    val key = "YOUR API KEY"
-                    val model = "arcee-ai/trinity-large-preview:free"
+                    val key = defaultApiKey
+                    val model = defaultModel
                     val resp = callChatCompletionApi(key, model, systemPrompt, userContent, summaryLength)
                     if (!resp.isNullOrBlank()) {
                         var finalResp = resp.trim()
@@ -77,8 +81,8 @@ class SummaryGenerator(
                 val systemPrompt = buildSystemPrompt(detailLevel, extraPrompt)
                 val userContent = buildUserContentFromNotifications(notifications)
                 try {
-                    val key = "YOUR API KEY"
-                    val model = "arcee-ai/trinity-large-preview:free"
+                    val key = defaultApiKey
+                    val model = defaultModel
                     val resp = callChatCompletionApi(key, model, systemPrompt, userContent, summaryLength)
                     if (!resp.isNullOrBlank()) {
                         var finalResp = resp.trim()
@@ -125,8 +129,8 @@ class SummaryGenerator(
             val systemPrompt = buildSystemPrompt(detailLevel, extraPrompt)
             val userContent = buildUserContent(allMessages.sortedBy { it.timestamp })
 
-            val key = "YOUR API KEY"
-            val model = "arcee-ai/trinity-large-preview:free"
+            val key = defaultApiKey
+            val model = defaultModel
             try {
                 val resp = callChatCompletionApi(key, model, systemPrompt, userContent, summaryLength)
                 if (!resp.isNullOrBlank()) {
@@ -175,7 +179,8 @@ class SummaryGenerator(
             if (textRaw.isNullOrEmpty() || textRaw.equals("(sin contenido)", ignoreCase = true)) continue
             val time = df.format(Date(m.timestamp))
             val sender = m.senderName ?: "(desconocido)"
-            sb.append("[").append(time).append("] ").append(sender).append(": ").append(textRaw).append("\n")
+            val chatId = m.chatId
+            sb.append("[").append(time).append("] Chat: ").append(chatId).append(", Remitente: ").append(sender).append(": ").append(textRaw).append("\n")
         }
         return sb.toString()
     }
@@ -186,10 +191,11 @@ class SummaryGenerator(
         sb.append("Notificaciones del día:\n")
         for (n in notifs) {
             val time = df.format(Date(n.timestamp))
-            val app = n.appName ?: n.packageName
-            val titlePart = n.title?.let { " ($it)" } ?: ""
+            val appName = n.appName ?: "Desconocida"
+            val packageName = n.packageName
+            val title = n.title ?: "Sin título"
             val text = n.text.trim()
-            sb.append("[").append(time).append("] ").append(app).append(titlePart).append(": ").append(text).append("\n")
+            sb.append("[").append(time).append("] Aplicación: ").append(appName).append(" (").append(packageName).append("), Título: ").append(title).append(", Contenido: ").append(text).append("\n")
         }
         return sb.toString()
     }

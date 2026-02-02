@@ -37,4 +37,7 @@ interface NotificationDao {
 
     @Query("DELETE FROM notifications WHERE id IN (:ids)")
     suspend fun deleteNotificationsByIds(ids: List<Long>)
+
+    @Query("DELETE FROM notifications WHERE package_name = :packageName")
+    suspend fun deleteNotificationsByPackage(packageName: String)
 }
