@@ -15,31 +15,46 @@
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
-        android:theme="@style/Theme.NotiSummarizer"
+        android:theme="@style/Theme.Notirizer"
         tools:targetApi="31">
 
-        <!-- Actividad principal -->
+        <!-- Dashboard (pantalla principal) -->
         <activity
-            android:name=".ui.MainActivity"
+            android:name=".ui.DashboardActivity"
             android:exported="true"
             android:label="@string/app_name"
-            android:theme="@style/Theme.NotiSummarizer.NoActionBar">
+            android:theme="@style/Theme.Notirizer.NoActionBar">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
 
+        <!-- Actividad principal (lista de chats) -->
+        <activity
+            android:name=".ui.MainActivity"
+            android:exported="false"
+            android:label="Chats"
+            android:theme="@style/Theme.Notirizer.NoActionBar" />
+
+        <!-- Vista de notificaciones por aplicación -->
+        <activity
+            android:name=".ui.AppNotificationsActivity"
+            android:exported="false"
+            android:label="Notificaciones"
+            android:theme="@style/Theme.Notirizer.NoActionBar" />
+
         <!-- Actividad de detalle de chat (sin ActionBar, usa Toolbar en layout) -->
         <activity
             android:name=".ui.ChatDetailActivity"
             android:exported="false"
             android:parentActivityName=".ui.MainActivity"
-            android:theme="@style/Theme.NotiSummarizer.NoActionBar" />
+            android:theme="@style/Theme.Notirizer.NoActionBar" />
 
-        <!-- Servicio de escucha de notificaciones -->
+        <!-- Servicio de captura de notificaciones del dispositivo -->
         <service
-            android:name=".service.WhatsAppNotificationListener"
+            android:name=".service.NotificationCaptureService"
+            android:label="Capturador de Notificaciones"
             android:exported="false"
             android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
             <intent-filter>

@@ -66,6 +66,9 @@ dependencies {
     implementation("androidx.recyclerview:recyclerview:1.3.2")
     implementation("androidx.cardview:cardview:1.0.0")
     
+    // MPAndroidChart for charts
+    implementation("com.github.PhilJay:MPAndroidChart:v3.0.3")
+    
     // Material Date Picker & CoordinatorLayout
     implementation("com.google.android.material:material:1.11.0")
     implementation("androidx.coordinatorlayout:coordinatorlayout:1.2.0")

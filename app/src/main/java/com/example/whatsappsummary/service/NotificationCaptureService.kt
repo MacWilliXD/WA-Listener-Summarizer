@@ -16,7 +16,14 @@ import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
-class WhatsAppNotificationListener : NotificationListenerService() {
+/**
+ * NotificationCaptureService: captura y procesa TODAS las notificaciones del dispositivo.
+ * - Recopila notificaciones de cualquier aplicación (WhatsApp, Telegram, Gmail, etc.)
+ * - Las normaliza, filtra y almacena en la base de datos local
+ * - Genera resúmenes automáticos diarios según configuración
+ * - Respeta configuración del usuario (apps permitidas, filtros, etc.)
+ */
+class NotificationCaptureService : NotificationListenerService() {
 
     private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private lateinit var database: AppDatabase
@@ -25,7 +32,7 @@ class WhatsAppNotificationListener : NotificationListenerService() {
     private val recentLock = Any()
     
     companion object {
-        private const val TAG = "WANotificationListener"
+        private const val TAG = "NotificationCapture"
         private const val WHATSAPP_PACKAGE = "com.whatsapp"
         private const val WHATSAPP_BUSINESS = "com.whatsapp.w4b"
     }
@@ -256,6 +263,22 @@ class WhatsAppNotificationListener : NotificationListenerService() {
                 isGroupMessage = false
             )
             database.messageDao().insertMessage(message)
+            try {
+                // Save generic notification record
+                val notif = com.example.whatsappsummary.data.entity.Notification(
+                    packageName = packageName,
+                    appName = null,
+                    chatId = finalChatId,
+                    title = rawTitle,
+                    text = actualMessage,
+                    timestamp = timestamp,
+                    isGroup = false,
+                    extrasJson = null
+                )
+                database.notificationDao().insertNotification(notif)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error inserting notification record", e)
+            }
         } else {
             Log.d(TAG, "Duplicate other-notification detected, skipping")
         }
@@ -359,6 +382,21 @@ class WhatsAppNotificationListener : NotificationListenerService() {
                 isGroupMessage = isGroup
             )
             database.messageDao().insertMessage(message)
+            try {
+                val notif = com.example.whatsappsummary.data.entity.Notification(
+                    packageName = notificationPackage,
+                    appName = chatName,
+                    chatId = chatId,
+                    title = title,
+                    text = actualMessage,
+                    timestamp = timestamp,
+                    isGroup = isGroup,
+                    extrasJson = null
+                )
+                database.notificationDao().insertNotification(notif)
+            } catch (e: Exception) {
+                Log.e(TAG, "Error inserting notification record", e)
+            }
         } else {
             Log.d(TAG, "Mensaje duplicado detectado, omitiendo insert: $chatId | $senderName | $actualMessage")
         }
@@ -393,42 +431,38 @@ class WhatsAppNotificationListener : NotificationListenerService() {
         calendar.set(Calendar.MILLISECOND, 999)
         val endOfDay = calendar.timeInMillis
         
-        // Obtener mensajes del día
+        // Obtener mensajes del día (para contar)
         val messages = database.messageDao().getMessagesByDateRange(chatId, startOfDay, endOfDay)
         val messageCount = messages.size
-        
-        // Crear resumen simple
-        val summary = buildString {
-            append("Total de mensajes: $messageCount\n")
-            if (messages.isNotEmpty()) {
-                val senders = messages.map { it.senderName }.distinct()
-                append("Participantes: ${senders.joinToString(", ")}\n")
-                append("\nÚltimos mensajes:\n")
-                messages.takeLast(5).forEach { msg ->
-                    val time = SimpleDateFormat("HH:mm", Locale.getDefault()).format(Date(msg.timestamp))
-                    append("[$time] ${msg.senderName}: ${msg.messageText}\n")
-                }
+
+        // Generar resumen automático usando SummaryGenerator (poco detallado)
+        try {
+            val repo = com.example.whatsappsummary.repository.NotificationRepository(database.chatDao(), database.messageDao(), database.dailySummaryDao(), database.notificationDao())
+            val generator = com.example.whatsappsummary.util.SummaryGenerator(applicationContext, repo)
+            // resumen corto: detalle 'Resumido', límite de tokens pequeño
+            val generated = generator.generateDailySummary(chatId, summaryLength = 120, detailLevel = "Resumido", extraPrompt = null)
+
+            val existingAuto = database.dailySummaryDao().getSummaryByDateAndType(chatId, date, "automatic")
+            if (existingAuto == null) {
+                val newSummary = com.example.whatsappsummary.data.entity.DailySummary(
+                    chatId = chatId,
+                    date = date,
+                    messageCount = messageCount,
+                    summary = generated,
+                    timestamp = timestamp,
+                    type = "automatic"
+                )
+                database.dailySummaryDao().insertSummary(newSummary)
+            } else {
+                val updatedSummary = existingAuto.copy(
+                    messageCount = messageCount,
+                    summary = generated,
+                    timestamp = timestamp
+                )
+                database.dailySummaryDao().updateSummary(updatedSummary)
             }
-        }
-        
-        // Guardar o actualizar resumen
-        val existingSummary = database.dailySummaryDao().getSummaryByDate(chatId, date)
-        if (existingSummary == null) {
-            val newSummary = com.example.whatsappsummary.data.entity.DailySummary(
-                chatId = chatId,
-                date = date,
-                messageCount = messageCount,
-                summary = summary,
-                timestamp = timestamp
-            )
-            database.dailySummaryDao().insertSummary(newSummary)
-        } else {
-            val updatedSummary = existingSummary.copy(
-                messageCount = messageCount,
-                summary = summary,
-                timestamp = timestamp
-            )
-            database.dailySummaryDao().updateSummary(updatedSummary)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error generating automatic summary via API", e)
         }
     }
 

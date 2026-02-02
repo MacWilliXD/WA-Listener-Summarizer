@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.cardview.widget.CardView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_margin="4dp"
+    app:cardCornerRadius="8dp"
+    app:cardElevation="2dp">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="12dp">
+
+        <!-- Título de la notificación -->
+        <TextView
+            android:id="@+id/textTitle"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:textColor="@android:color/black"
+            tools:text="Nuevo mensaje" />
+
+        <!-- Contenido de la notificación -->
+        <TextView
+            android:id="@+id/textContent"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="14sp"
+            android:textColor="@android:color/black"
+            android:layout_marginTop="4dp"
+            tools:text="Hola, ¿cómo estás?" />
+
+        <!-- ID del chat (si existe) -->
+        <TextView
+            android:id="@+id/textChatId"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="12sp"
+            android:textColor="@android:color/darker_gray"
+            android:layout_marginTop="4dp"
+            android:visibility="gone"
+            tools:text="Chat: chat123"
+            tools:visibility="visible" />
+
+        <!-- Timestamp -->
+        <TextView
+            android:id="@+id/textTimestamp"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:textSize="12sp"
+            android:textColor="@android:color/darker_gray"
+            android:layout_marginTop="4dp"
+            tools:text="15/01/2024 14:30" />
+    </LinearLayout>
+</androidx.cardview.widget.CardView>

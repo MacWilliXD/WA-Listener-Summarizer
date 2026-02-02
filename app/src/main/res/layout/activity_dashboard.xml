@@ -1,0 +1,268 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@android:color/white"
+    android:padding="16dp">
+
+    <androidx.constraintlayout.widget.ConstraintLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content">
+
+    <!-- Título -->
+    <TextView
+        android:id="@+id/textTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Dashboard de Notificaciones"
+        android:textSize="24sp"
+        android:textStyle="bold"
+        android:textColor="@android:color/black"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        android:layout_marginTop="16dp" />
+
+    <!-- Estadísticas principales -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/cardStats"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        android:layout_marginStart="4dp"
+        android:layout_marginEnd="4dp"
+        app:cardCornerRadius="8dp"
+        app:cardElevation="4dp"
+        app:layout_constraintTop_toBottomOf="@id/textTitle"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:cardUseCompatPadding="true">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="16dp">
+
+            <!-- Total de notificaciones -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="12dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Total de notificaciones:"
+                    android:textSize="16sp"
+                    android:textColor="@android:color/black" />
+
+                <TextView
+                    android:id="@+id/textTotalNotifications"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/design_default_color_primary"
+                    tools:text="1,234" />
+            </LinearLayout>
+
+            <!-- Aplicaciones emisoras -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginBottom="12dp">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Aplicaciones emisoras:"
+                    android:textSize="16sp"
+                    android:textColor="@android:color/black" />
+
+                <TextView
+                    android:id="@+id/textTotalApps"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/design_default_color_primary"
+                    tools:text="12" />
+            </LinearLayout>
+
+            <!-- Notificaciones hoy -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal">
+
+                <TextView
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_weight="1"
+                    android:text="Notificaciones hoy:"
+                    android:textSize="16sp"
+                    android:textColor="@android:color/black" />
+
+                <TextView
+                    android:id="@+id/textTodayNotifications"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="0"
+                    android:textSize="18sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/design_default_color_primary"
+                    tools:text="45" />
+            </LinearLayout>
+        </LinearLayout>
+    </androidx.cardview.widget.CardView>
+
+    <!-- Gráfica de pastel -->
+    <TextView
+        android:id="@+id/textPieChartTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Notificaciones por Aplicación"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:textColor="@android:color/black"
+        app:layout_constraintTop_toBottomOf="@id/cardStats"
+        app:layout_constraintStart_toStartOf="parent"
+        android:layout_marginTop="24dp" />
+
+    <Spinner
+        android:id="@+id/spinnerPieRange"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="24dp"
+        app:layout_constraintTop_toBottomOf="@id/cardStats"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <androidx.cardview.widget.CardView
+        android:id="@+id/cardPieChart"
+        android:layout_width="0dp"
+        android:layout_height="320dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginStart="4dp"
+        android:layout_marginEnd="4dp"
+        app:cardCornerRadius="8dp"
+        app:cardElevation="4dp"
+        app:layout_constraintTop_toBottomOf="@id/textPieChartTitle"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:cardUseCompatPadding="true">
+
+        <com.github.mikephil.charting.charts.PieChart
+            android:id="@+id/pieChart"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_margin="8dp" />
+    </androidx.cardview.widget.CardView>
+
+    <!-- Línea del tiempo -->
+    <TextView
+        android:id="@+id/textTimelineTitle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Línea del Tiempo de Notificaciones"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:textColor="@android:color/black"
+        app:layout_constraintTop_toBottomOf="@id/cardPieChart"
+        app:layout_constraintStart_toStartOf="parent"
+        android:layout_marginTop="24dp" />
+
+    <!-- Spinners para selección -->
+    <LinearLayout
+        android:id="@+id/layoutSpinners"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:layout_marginTop="8dp"
+        app:layout_constraintTop_toBottomOf="@id/textTimelineTitle"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <Spinner
+            android:id="@+id/spinnerApp"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:layout_marginEnd="8dp" />
+
+        <Spinner
+            android:id="@+id/spinnerRange"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1" />
+    </LinearLayout>
+
+    <androidx.cardview.widget.CardView
+        android:id="@+id/cardLineChart"
+        android:layout_width="0dp"
+        android:layout_height="320dp"
+        android:layout_marginTop="8dp"
+        android:layout_marginStart="4dp"
+        android:layout_marginEnd="4dp"
+        app:cardCornerRadius="8dp"
+        app:cardElevation="4dp"
+        app:layout_constraintTop_toBottomOf="@id/layoutSpinners"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:cardUseCompatPadding="true">
+
+        <com.github.mikephil.charting.charts.LineChart
+            android:id="@+id/lineChart"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:layout_margin="8dp" />
+    </androidx.cardview.widget.CardView>
+
+    <!-- Lista de aplicaciones -->
+    <TextView
+        android:id="@+id/textTopApps"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Lista de Aplicaciones"
+        android:textSize="18sp"
+        android:textStyle="bold"
+        android:textColor="@android:color/black"
+        app:layout_constraintTop_toBottomOf="@id/cardLineChart"
+        app:layout_constraintStart_toStartOf="parent"
+        android:layout_marginTop="24dp" />
+
+    <androidx.recyclerview.widget.RecyclerView
+        android:id="@+id/recyclerTopApps"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="16dp"
+        android:nestedScrollingEnabled="false"
+        app:layout_constraintTop_toBottomOf="@id/textTopApps"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        tools:listitem="@layout/item_app_stats" />
+
+    <!-- Botón para ver lista de chats (vista anterior) -->
+    <com.google.android.material.button.MaterialButton
+        android:id="@+id/buttonViewChats"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:text="Ver lista de chats"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="24dp"
+        app:layout_constraintTop_toBottomOf="@id/recyclerTopApps"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    </androidx.constraintlayout.widget.ConstraintLayout>
+</ScrollView>

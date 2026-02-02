@@ -97,8 +97,30 @@ class SummariesFragment : Fragment() {
         }
 
         binding.buttonGenerateSummary.setOnClickListener {
-            // trigger manual generation via ViewModel
-            viewModel.generateManualSummary()
+            // Show options dialog to collect optional length/detail/prompt
+            val optsView = layoutInflater.inflate(com.example.whatsappsummary.R.layout.dialog_summarize_options, null)
+            val editLength = optsView.findViewById<android.widget.EditText>(com.example.whatsappsummary.R.id.editSummaryLength)
+            val spinner = optsView.findViewById<android.widget.Spinner>(com.example.whatsappsummary.R.id.spinnerDetailLevel)
+            val editExtra = optsView.findViewById<android.widget.EditText>(com.example.whatsappsummary.R.id.editExtraPrompt)
+            val options = listOf("Resumido", "Intermedio", "Detallado")
+            val spAdapter = android.widget.ArrayAdapter(requireContext(), android.R.layout.simple_spinner_item, options)
+            spAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+            spinner.adapter = spAdapter
+
+            androidx.appcompat.app.AlertDialog.Builder(requireContext())
+                .setTitle("Opciones de resumen")
+                .setView(optsView)
+                .setPositiveButton("Generar") { _, _ ->
+                    // collect optional inputs from dialog
+                    val length = editLength.text?.toString()?.trim()?.toIntOrNull()
+                    val detail = spinner.selectedItem as? String ?: "Intermedio"
+                    val extra = editExtra.text?.toString()?.takeIf { it.isNotBlank() }
+
+                    // trigger manual generation via ViewModel with options
+                    viewModel.generateManualSummary(length, detail, extra)
+                }
+                .setNegativeButton("Cancelar", null)
+                .show()
         }
     }
 

@@ -15,7 +15,7 @@ import androidx.room.PrimaryKey
             onDelete = ForeignKey.CASCADE
         )
     ],
-    indices = [Index(value = ["chatId","date"], unique = true)]
+    indices = [Index(value = ["chatId","date","type"], unique = true)]
 )
 data class DailySummary(
     @PrimaryKey(autoGenerate = true)
@@ -24,5 +24,6 @@ data class DailySummary(
     val date: String, // Fecha en formato YYYY-MM-DD
     val messageCount: Int, // Cantidad de mensajes ese día
     val summary: String, // Resumen de los mensajes del día
-    val timestamp: Long // Timestamp para ordenar
+    val timestamp: Long, // Timestamp para ordenar
+    val type: String = "manual" // "manual" o "automatic"
 )

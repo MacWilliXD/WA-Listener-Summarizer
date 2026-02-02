@@ -9,7 +9,11 @@ import com.example.whatsappsummary.data.entity.Chat
 import com.example.whatsappsummary.data.entity.DailySummary
 import com.example.whatsappsummary.data.entity.Message
 
-class WhatsAppRepository(
+/**
+ * Repository centralizado para manejar todas las notificaciones del dispositivo.
+ * Gestiona chats/fuentes, mensajes, notificaciones y resúmenes diarios.
+ */
+class NotificationRepository(
     private val chatDao: ChatDao,
     private val messageDao: MessageDao,
     private val dailySummaryDao: DailySummaryDao,

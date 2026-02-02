@@ -18,8 +18,13 @@ interface DailySummaryDao {
     @Query("SELECT * FROM daily_summaries WHERE chatId = :chatId AND timestamp >= :startTs AND timestamp <= :endTs ORDER BY timestamp DESC")
     suspend fun getSummariesByTimestampRange(chatId: String, startTs: Long, endTs: Long): List<DailySummary>
     
-    @Query("SELECT * FROM daily_summaries WHERE chatId = :chatId AND date = :date")
+    // Return the most recent summary for the date (any type)
+    @Query("SELECT * FROM daily_summaries WHERE chatId = :chatId AND date = :date ORDER BY timestamp DESC LIMIT 1")
     suspend fun getSummaryByDate(chatId: String, date: String): DailySummary?
+
+    // Return the summary for the date with a specific type ("automatic" or "manual")
+    @Query("SELECT * FROM daily_summaries WHERE chatId = :chatId AND date = :date AND type = :type LIMIT 1")
+    suspend fun getSummaryByDateAndType(chatId: String, date: String, type: String): DailySummary?
     
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertSummary(summary: DailySummary)

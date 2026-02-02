@@ -66,6 +66,14 @@ class SummaryAdapter(
                 header.visibility = android.view.View.GONE
             }
             binding.textViewDate.text = summary.date
+            // Show summary type
+            val typeLabel = when (summary.type.lowercase(Locale.getDefault())) {
+                "automatic", "automático", "automatico" -> "Automático"
+                else -> "Manual"
+            }
+            try {
+                binding.textViewType.text = typeLabel
+            } catch (_: Exception) {}
             binding.textViewMessageCount.text = "${summary.messageCount} mensajes"
             binding.textViewSummary.text = summary.summary
             

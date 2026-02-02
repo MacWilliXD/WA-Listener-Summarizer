@@ -8,7 +8,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.whatsappsummary.data.AppDatabase
 import com.example.whatsappsummary.data.entity.DailySummary
 import com.example.whatsappsummary.data.entity.Message
-import com.example.whatsappsummary.repository.WhatsAppRepository
+import com.example.whatsappsummary.repository.NotificationRepository
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -16,7 +16,7 @@ import java.text.Normalizer
 import java.util.Locale
 
 class ChatDetailViewModel(application: Application) : AndroidViewModel(application) {
-    private val repository: WhatsAppRepository
+    private val repository: NotificationRepository
     
     private val _messages = MutableLiveData<List<Message>>()
     val messages: LiveData<List<Message>> = _messages
@@ -40,10 +40,11 @@ class ChatDetailViewModel(application: Application) : AndroidViewModel(applicati
 
     init {
         val database = AppDatabase.getDatabase(application)
-        repository = WhatsAppRepository(
+        repository = NotificationRepository(
             database.chatDao(),
             database.messageDao(),
-            database.dailySummaryDao()
+            database.dailySummaryDao(),
+            database.notificationDao()
         )
     }
 
@@ -175,7 +176,7 @@ class ChatDetailViewModel(application: Application) : AndroidViewModel(applicati
      * Manual summary generation (simple heuristic): grab recent messages and insert a DailySummary.
      * Shows a loading state via [isGenerating].
      */
-    fun generateManualSummary() {
+    fun generateManualSummary(summaryLength: Int? = null, detailLevel: String? = null, extraPrompt: String? = null) {
         val cid = currentChatId ?: return
         viewModelScope.launch {
             android.util.Log.d("ChatDetailVM", "Iniciando generación de resumen manual para chatId=$cid")
@@ -226,7 +227,8 @@ class ChatDetailViewModel(application: Application) : AndroidViewModel(applicati
                     date = dateStr,
                     messageCount = visible.size,
                     summary = "Generando resumen...",
-                    timestamp = now
+                    timestamp = now,
+                    type = "manual"
                 )
                 withContext(Dispatchers.IO) { repository.insertSummary(placeholder) }
                 android.util.Log.d("ChatDetailVM", "Placeholder de resumen insertado para $cid en $dateStr")
@@ -235,7 +237,14 @@ class ChatDetailViewModel(application: Application) : AndroidViewModel(applicati
                 var finalSummaryText: String? = null
                 try {
                     val generator = com.example.whatsappsummary.util.SummaryGenerator(getApplication(), repository)
-                    finalSummaryText = withContext(Dispatchers.IO) { generator.generateDailySummary(cid) }
+                    finalSummaryText = withContext(Dispatchers.IO) {
+                        generator.generateDailySummary(
+                            cid,
+                            summaryLength,
+                            detailLevel ?: "Intermedio",
+                            extraPrompt
+                        )
+                    }
                 } catch (e: Exception) {
                     android.util.Log.e("ChatDetailVM", "Error usando SummaryGenerator", e)
                     finalSummaryText = "ERROR interno: ${e.message}"
@@ -248,7 +257,8 @@ class ChatDetailViewModel(application: Application) : AndroidViewModel(applicati
                 date = dateStr,
                 messageCount = visible.size,
                 summary = finalSummaryText ?: "",
-                timestamp = System.currentTimeMillis()
+                timestamp = System.currentTimeMillis(),
+                type = "manual"
             )
             withContext(Dispatchers.IO) { repository.insertSummary(updatedSummary) }
             android.util.Log.d("ChatDetailVM", "Resumen final insertado y recargando datos de chat $cid")

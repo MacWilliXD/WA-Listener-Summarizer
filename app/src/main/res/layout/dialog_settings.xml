@@ -30,6 +30,15 @@
 
     <Button
         style="@style/Widget.App.ButtonText"
+        android:id="@+id/buttonViewDashboard"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Ver Dashboard"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="8dp" />
+
+    <Button
+        style="@style/Widget.App.ButtonText"
         android:id="@+id/buttonTestConnectivity"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"

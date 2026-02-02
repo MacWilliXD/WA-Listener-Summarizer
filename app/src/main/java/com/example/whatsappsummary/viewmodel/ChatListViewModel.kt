@@ -6,21 +6,22 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.viewModelScope
 import com.example.whatsappsummary.data.AppDatabase
 import com.example.whatsappsummary.data.entity.Chat
-import com.example.whatsappsummary.repository.WhatsAppRepository
+import com.example.whatsappsummary.repository.NotificationRepository
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 class ChatListViewModel(application: Application) : AndroidViewModel(application) {
-    private val repository: WhatsAppRepository
+    private val repository: NotificationRepository
     val allChats: LiveData<List<Chat>>
 
     init {
         val database = AppDatabase.getDatabase(application)
-        repository = WhatsAppRepository(
+        repository = NotificationRepository(
             database.chatDao(),
             database.messageDao(),
-            database.dailySummaryDao()
+            database.dailySummaryDao(),
+            database.notificationDao()
         )
         allChats = repository.allChats
     }

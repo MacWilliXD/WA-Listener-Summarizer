@@ -16,14 +16,15 @@ import kotlinx.coroutines.launch
 import java.util.Locale
 
 @Database(
-    entities = [Chat::class, Message::class, DailySummary::class],
-    version = 2,
+    entities = [Chat::class, Message::class, DailySummary::class, com.example.whatsappsummary.data.entity.Notification::class],
+    version = 4,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun chatDao(): ChatDao
     abstract fun messageDao(): MessageDao
     abstract fun dailySummaryDao(): DailySummaryDao
+    abstract fun notificationDao(): com.example.whatsappsummary.data.dao.NotificationDao
     
     companion object {
         @Volatile
@@ -114,7 +115,8 @@ abstract class AppDatabase : RoomDatabase() {
                                 date = s.date,
                                 messageCount = s.messageCount,
                                 summary = s.summary,
-                                timestamp = s.timestamp
+                                timestamp = s.timestamp,
+                                type = s.type
                             )
                             kotlinx.coroutines.runBlocking { summaryDao.insertSummary(newSummary) }
                         } else {
@@ -143,7 +145,8 @@ abstract class AppDatabase : RoomDatabase() {
                                 date = s.date,
                                 messageCount = s.messageCount,
                                 summary = s.summary,
-                                timestamp = s.timestamp
+                                timestamp = s.timestamp,
+                                type = s.type
                             )
                             kotlinx.coroutines.runBlocking { summaryDao.insertSummary(newSummary) }
                         } else {

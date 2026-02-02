@@ -1,6 +1,6 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
-    <style name="Theme.NotiSummarizer" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
+    <style name="Theme.Notirizer" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
         <!-- Pastel primary/secondary -->
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorPrimaryVariant">@color/colorPrimaryVariant</item>
@@ -21,7 +21,7 @@
     </style>
     
     <!-- Tema para actividades que usan Toolbar manualmente -->
-    <style name="Theme.NotiSummarizer.NoActionBar" parent="Theme.MaterialComponents.DayNight.NoActionBar">
+    <style name="Theme.Notirizer.NoActionBar" parent="Theme.MaterialComponents.DayNight.NoActionBar">
         <item name="colorPrimary">@color/colorPrimary</item>
         <item name="colorPrimaryVariant">@color/colorPrimaryVariant</item>
         <item name="colorOnPrimary">@color/colorOnPrimary</item>

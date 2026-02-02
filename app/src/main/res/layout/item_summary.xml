@@ -42,6 +42,15 @@
                 android:textColor="@android:color/black" />
 
             <TextView
+                android:id="@+id/textViewType"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Manual"
+                android:textSize="12sp"
+                android:paddingEnd="8dp"
+                android:textColor="@android:color/holo_blue_dark" />
+
+            <TextView
                 android:id="@+id/textViewMessageCount"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"

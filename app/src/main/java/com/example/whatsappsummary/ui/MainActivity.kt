@@ -32,16 +32,35 @@ class MainActivity : AppCompatActivity() {
     private var filterStartTs: Long? = null
     private var filterEndTs: Long? = null
     private var filterText: String? = null
+    private var filterPackage: String? = null
+    private lateinit var filterPrefs: android.content.SharedPreferences
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
+
+        // Verificar si viene un filtro de aplicación desde el Intent ANTES de cualquier setup
+        val filterPackageFromIntent = intent.getStringExtra("FILTER_PACKAGE")
+        val filterAppNameFromIntent = intent.getStringExtra("FILTER_APP_NAME")
         
+        // Inicializar SharedPreferences para filtros
+        filterPrefs = getSharedPreferences("filter_prefs", MODE_PRIVATE)
+        loadFiltersFromPrefs()
+        
+        // Si viene un filtro desde el intent, sobrescribir el de SharedPreferences
+        if (filterPackageFromIntent != null) {
+            filterPackage = filterPackageFromIntent
+            // Mostrar mensaje indicando el filtro aplicado
+            android.util.Log.d("FilterDebug", "Aplicando filtro desde dashboard: $filterPackageFromIntent")
+            Toast.makeText(this, "Mostrando chats de: ${filterAppNameFromIntent ?: filterPackageFromIntent}", Toast.LENGTH_SHORT).show()
+        }
+
         setupViewModel()
         setupRecyclerView()
         setupObservers()
         setupFab()
+        setupToolbar()
         setupFilterFab()
         setupSummarizeFab()
         
@@ -77,8 +96,8 @@ class MainActivity : AppCompatActivity() {
     private fun setupObservers() {
         viewModel.allChats.observe(this) { chats ->
             fullChats = chats
-            adapter.submitList(chats)
-            
+            applyCurrentFilters()
+
             // Mostrar mensaje si no hay chats
             if (chats.isEmpty()) {
                 binding.textViewEmpty.visibility = android.view.View.VISIBLE
@@ -88,6 +107,41 @@ class MainActivity : AppCompatActivity() {
                 binding.recyclerViewChats.visibility = android.view.View.VISIBLE
             }
         }
+    }
+
+    private fun applyCurrentFilters() {
+        android.util.Log.d("FilterDebug", "applyCurrentFilters - filterPackage: $filterPackage, fullChats size: ${fullChats.size}")
+        if (fullChats.isEmpty()) {
+            adapter.submitList(emptyList())
+            return
+        }
+
+        // Si no hay filtros aplicados, mostrar todos
+        if (filterStartTs == null && filterEndTs == null && filterText.isNullOrBlank() && filterPackage.isNullOrBlank()) {
+            android.util.Log.d("FilterDebug", "No hay filtros aplicados, mostrando todos los chats")
+            adapter.submitList(fullChats)
+            return
+        }
+
+        // Aplicar filtros actuales
+        val nq = filterText?.let { normalize(it) }
+        val defaultStart = 0L
+        val defaultEnd = 4102444800000L
+        val s = filterStartTs ?: defaultStart
+        val e = filterEndTs ?: defaultEnd
+
+        val filtered = fullChats.filter { chat ->
+            val inRange = chat.lastMessageTime in s..e
+            val matches = nq?.let { normalize(chat.chatName ?: "").contains(it) } ?: true
+            val pkgMatch = filterPackage?.let { chat.packageName == it } ?: true
+            // Debug: mostrar información de filtrado
+            if (filterPackage != null) {
+                android.util.Log.d("FilterDebug", "Chat: ${chat.chatName}, Package: ${chat.packageName}, Filter: $filterPackage, Match: $pkgMatch")
+            }
+            inRange && matches && pkgMatch
+        }
+        android.util.Log.d("FilterDebug", "Chats filtrados: ${filtered.size} de ${fullChats.size}")
+        adapter.submitList(filtered)
     }
 
     private fun setupFab() {
@@ -109,52 +163,88 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun generateAggregateSummaryForToday() {
-        if (fullChats.isEmpty()) {
-            Toast.makeText(this, "No hay chats para resumir", Toast.LENGTH_SHORT).show()
+        // Obtener chats filtrados actualmente mostrados
+        val currentFilteredChats = adapter.currentList
+        
+        if (currentFilteredChats.isEmpty()) {
+            Toast.makeText(this, "No hay chats para resumir con los filtros actuales", Toast.LENGTH_SHORT).show()
             return
         }
 
-        binding.fabSummarizeAll.isEnabled = false
-        Toast.makeText(this, "Generando resumen general del día...", Toast.LENGTH_SHORT).show()
+        // Show options dialog to collect optional length/detail/prompt
+        val optsView = layoutInflater.inflate(com.example.whatsappsummary.R.layout.dialog_summarize_options, null)
+        val editLength = optsView.findViewById<android.widget.EditText>(com.example.whatsappsummary.R.id.editSummaryLength)
+        val spinner = optsView.findViewById<android.widget.Spinner>(com.example.whatsappsummary.R.id.spinnerDetailLevel)
+        val editExtra = optsView.findViewById<android.widget.EditText>(com.example.whatsappsummary.R.id.editExtraPrompt)
+        val options = listOf("Resumido", "Intermedio", "Detallado")
+        val spAdapter = android.widget.ArrayAdapter(this, android.R.layout.simple_spinner_item, options)
+        spAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        spinner.adapter = spAdapter
 
-        lifecycleScope.launch {
-            val db = com.example.whatsappsummary.data.AppDatabase.getDatabase(applicationContext)
-            val repo = com.example.whatsappsummary.repository.WhatsAppRepository(db.chatDao(), db.messageDao(), db.dailySummaryDao())
-            val generator = com.example.whatsappsummary.util.SummaryGenerator(application, repo)
+        androidx.appcompat.app.AlertDialog.Builder(this)
+            .setTitle("Opciones de resumen")
+            .setView(optsView)
+            .setPositiveButton("Generar") { _, _ ->
+                binding.fabSummarizeAll.isEnabled = false
+                Toast.makeText(this, "Generando resumen general del día...", Toast.LENGTH_SHORT).show()
+                val length = editLength.text?.toString()?.trim()?.toIntOrNull()
+                val detail = spinner.selectedItem as? String ?: "Intermedio"
+                val extra = editExtra.text?.toString()?.takeIf { it.isNotBlank() }
 
-            try {
-                val chatIds = fullChats.map { it.chatId }
-                val summary = withContext(Dispatchers.IO) { generator.generateSummaryForChats(chatIds) }
+                lifecycleScope.launch {
+                    val db = com.example.whatsappsummary.data.AppDatabase.getDatabase(applicationContext)
+                    val repo = com.example.whatsappsummary.repository.NotificationRepository(db.chatDao(), db.messageDao(), db.dailySummaryDao(), db.notificationDao())
+                    val generator = com.example.whatsappsummary.util.SummaryGenerator(application, repo)
 
-                // Mostrar en diálogo grande el resumen agregado
-                val dialog = AlertDialog.Builder(this@MainActivity)
-                    .setTitle("Resumen general del día")
-                    .setMessage(summary)
-                    .setPositiveButton("Cerrar", null)
-                    .create()
-                dialog.show()
-            } catch (e: Exception) {
-                AlertDialog.Builder(this@MainActivity)
-                    .setTitle("Error")
-                    .setMessage("No se pudo generar el resumen: ${e.message}")
-                    .setPositiveButton("Cerrar", null)
-                    .show()
-            } finally {
-                binding.fabSummarizeAll.isEnabled = true
+                    try {
+                        val chatIds = currentFilteredChats.map { it.chatId }
+                        val summary = withContext(Dispatchers.IO) { generator.generateSummaryForChats(chatIds, length, detail, extra) }
+
+                        // Mostrar en diálogo grande el resumen agregado
+                        val filterInfo = if (filterPackage != null || filterStartTs != null || filterEndTs != null || !filterText.isNullOrBlank()) {
+                            " (${currentFilteredChats.size} chats filtrados)"
+                        } else {
+                            " (todos los chats)"
+                        }
+                        val dialog = AlertDialog.Builder(this@MainActivity)
+                            .setTitle("Resumen general$filterInfo")
+                            .setMessage(summary)
+                            .setPositiveButton("Cerrar", null)
+                            .create()
+                        dialog.show()
+                    } catch (e: Exception) {
+                        AlertDialog.Builder(this@MainActivity)
+                            .setTitle("Error")
+                            .setMessage("No se pudo generar el resumen: ${e.message}")
+                            .setPositiveButton("Cerrar", null)
+                            .show()
+                    } finally {
+                        binding.fabSummarizeAll.isEnabled = true
+                    }
+                }
             }
-        }
+            .setNegativeButton("Cancelar", null)
+            .show()
     }
 
     private fun showFilterDialogMain() {
         val dialogView = layoutInflater.inflate(com.example.whatsappsummary.R.layout.dialog_filters, null)
         val editSearch = dialogView.findViewById<android.widget.EditText>(com.example.whatsappsummary.R.id.editSearch)
         val spinnerChatType = dialogView.findViewById<android.widget.Spinner>(com.example.whatsappsummary.R.id.spinnerChatType)
+        val textChatTypeLabel = dialogView.findViewById<android.widget.TextView>(com.example.whatsappsummary.R.id.textChatTypeLabel)
         val btnPickStart = dialogView.findViewById<android.widget.Button>(com.example.whatsappsummary.R.id.buttonPickStart)
         val btnPickEnd = dialogView.findViewById<android.widget.Button>(com.example.whatsappsummary.R.id.buttonPickEnd)
         val textStart = dialogView.findViewById<android.widget.TextView>(com.example.whatsappsummary.R.id.textStartDialog)
         val textEnd = dialogView.findViewById<android.widget.TextView>(com.example.whatsappsummary.R.id.textEndDialog)
         val btnApply = dialogView.findViewById<android.widget.Button>(com.example.whatsappsummary.R.id.buttonApplyDialog)
         val btnClear = dialogView.findViewById<android.widget.Button>(com.example.whatsappsummary.R.id.buttonClearDialog)
+
+        // Si el filtro viene desde el dashboard, ocultar el filtro de aplicación emisora
+        val filterFromDashboard = intent.getStringExtra("FILTER_PACKAGE") != null
+        if (filterFromDashboard) {
+            spinnerChatType.visibility = android.view.View.GONE
+            textChatTypeLabel.visibility = android.view.View.GONE
+        }
 
         var startTs: Long? = filterStartTs
         var endTs: Long? = filterEndTs
@@ -280,28 +370,27 @@ class MainActivity : AppCompatActivity() {
 
         spinnerChatType.adapter = spinnerAdapter
 
+        // Seleccionar el package filtrado actualmente (solo si no viene desde dashboard)
+        if (filterPackage != null && !filterFromDashboard) {
+            val selectedIndex = entries.indexOfFirst { it.pkg == filterPackage }
+            if (selectedIndex >= 0) {
+                spinnerChatType.setSelection(selectedIndex)
+            }
+        }
+
         btnApply.setOnClickListener {
             val q = editSearch.text?.toString()?.trim()
-            val nq = q?.let { normalize(it) }
-            val sel = spinnerChatType.selectedItem as? AppEntry
-            val selectedPkg = sel?.pkg?.takeIf { it.isNotBlank() }
+            val sel = if (filterFromDashboard) null else (spinnerChatType.selectedItem as? AppEntry)
+            val selectedPkg = if (filterFromDashboard) filterPackage else sel?.pkg?.takeIf { it.isNotBlank() }
 
-            val defaultStart = 0L
-            val defaultEnd = 4102444800000L
-            val s = startTs ?: defaultStart
-            val e = endTs ?: defaultEnd
-
-            val filtered = fullChats.filter { chat ->
-                val inRange = chat.lastMessageTime in s..e
-                val matches = nq?.let { normalize(chat.chatName ?: "").contains(it) } ?: true
-                val pkgMatch = selectedPkg?.let { chat.packageName == it } ?: true
-                inRange && matches && pkgMatch
-            }
-            adapter.submitList(filtered)
             // persist applied filters for next dialog open
             filterStartTs = startTs
             filterEndTs = endTs
             filterText = q
+            filterPackage = selectedPkg
+
+            saveFiltersToPrefs()
+            applyCurrentFilters()
             dialog.dismiss()
         }
 
@@ -312,8 +401,15 @@ class MainActivity : AppCompatActivity() {
             filterEndTs = null
             filterText = null
             editSearch.setText("")
-            spinnerChatType.setSelection(0)
-            adapter.submitList(fullChats)
+            
+            // Si viene desde dashboard, mantener el filtro de aplicación
+            if (!filterFromDashboard) {
+                filterPackage = null
+                spinnerChatType.setSelection(0)
+            }
+            
+            saveFiltersToPrefs()
+            applyCurrentFilters()
             dialog.dismiss()
         }
 
@@ -331,6 +427,7 @@ class MainActivity : AppCompatActivity() {
         val btnGrant = dialogView.findViewById<android.widget.Button>(com.example.whatsappsummary.R.id.buttonGrantPermission)
         val switchWhatsApp = dialogView.findViewById<androidx.appcompat.widget.SwitchCompat>(com.example.whatsappsummary.R.id.switchWhatsApp)
         val switchOthers = dialogView.findViewById<androidx.appcompat.widget.SwitchCompat>(com.example.whatsappsummary.R.id.switchOthers)
+        val btnViewDashboard = dialogView.findViewById<android.widget.Button>(com.example.whatsappsummary.R.id.buttonViewDashboard)
 
         // Estado inicial
         switchWhatsApp.isChecked = prefs.getBoolean("collect_whatsapp", true)
@@ -355,6 +452,12 @@ class MainActivity : AppCompatActivity() {
         switchOthers.setOnCheckedChangeListener { _, isChecked ->
             prefs.edit().putBoolean("collect_others", isChecked).apply()
             android.widget.Toast.makeText(this, if (isChecked) "Recopilación otras notificaciones habilitada" else "Recopilación otras notificaciones deshabilitada", android.widget.Toast.LENGTH_SHORT).show()
+        }
+
+        btnViewDashboard.setOnClickListener {
+            val intent = Intent(this, DashboardActivity::class.java)
+            startActivity(intent)
+            dialog.dismiss()
         }
 
         dialog.show()
@@ -390,6 +493,60 @@ class MainActivity : AppCompatActivity() {
                 }
                 .setNegativeButton("Más tarde", null)
                 .show()
+        }
+    }
+
+    private fun saveFiltersToPrefs() {
+        filterPrefs.edit()
+            .putLong("filter_start_ts", filterStartTs ?: -1L)
+            .putLong("filter_end_ts", filterEndTs ?: -1L)
+            .putString("filter_text", filterText)
+            .putString("filter_package", filterPackage)
+            .apply()
+    }
+
+    private fun loadFiltersFromPrefs() {
+        filterStartTs = filterPrefs.getLong("filter_start_ts", -1L).takeIf { it != -1L }
+        filterEndTs = filterPrefs.getLong("filter_end_ts", -1L).takeIf { it != -1L }
+        filterText = filterPrefs.getString("filter_text", null)
+        filterPackage = filterPrefs.getString("filter_package", null)
+    }
+
+    private fun setupToolbar() {
+        setSupportActionBar(binding.toolbar)
+        
+        // Cambiar el título si hay filtro de aplicación aplicado
+        val filterAppNameFromIntent = intent.getStringExtra("FILTER_APP_NAME")
+        if (filterAppNameFromIntent != null) {
+            supportActionBar?.title = filterAppNameFromIntent
+            supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        } else {
+            supportActionBar?.title = "Notificator Summary"
+            supportActionBar?.setDisplayHomeAsUpEnabled(false)
+        }
+    }
+
+    override fun onCreateOptionsMenu(menu: android.view.Menu): Boolean {
+        menuInflater.inflate(com.example.whatsappsummary.R.menu.menu_main, menu)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: android.view.MenuItem): Boolean {
+        when (item.itemId) {
+            android.R.id.home -> {
+                // Volver al dashboard
+                val intent = Intent(this, DashboardActivity::class.java)
+                intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
+                startActivity(intent)
+                finish()
+                return true
+            }
+            com.example.whatsappsummary.R.id.action_dashboard -> {
+                val intent = Intent(this, DashboardActivity::class.java)
+                startActivity(intent)
+                return true
+            }
+            else -> return super.onOptionsItemSelected(item)
         }
     }
 }

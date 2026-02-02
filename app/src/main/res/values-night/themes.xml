@@ -1,6 +1,6 @@
 <resources xmlns:tools="http://schemas.android.com/tools">
     <!-- Base application theme. -->
-    <style name="Theme.NotiSummarizer" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
+    <style name="Theme.Notirizer" parent="Theme.MaterialComponents.DayNight.DarkActionBar">
         <!-- Night: darker background with pastel green accents -->
         <item name="colorPrimary">@color/pastel_green_300</item>
         <item name="colorPrimaryVariant">@color/pastel_green_100</item>

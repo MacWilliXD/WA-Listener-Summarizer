@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:padding="16dp">
+
+    <EditText
+        android:id="@+id/editSummaryLength"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Largo (tokens, opcional)"
+        android:inputType="number" />
+
+    <Spinner
+        android:id="@+id/spinnerDetailLevel"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="8dp" />
+
+    <EditText
+        android:id="@+id/editExtraPrompt"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:hint="Instrucción adicional (opcional)"
+        android:inputType="text"
+        android:layout_marginTop="8dp" />
+
+</LinearLayout>
