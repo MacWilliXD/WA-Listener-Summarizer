@@ -93,30 +93,31 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun loadLineChartData(packageName: String, daysRange: Int) {
+    fun loadLineChartData(packageName: String, startTime: Long, endTime: Long) {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
                 try {
-                    val endTime = System.currentTimeMillis()
-                    val startTime = endTime - (daysRange * 24 * 60 * 60 * 1000L)
-                    
                     val notifications = if (packageName == "all") {
                         database.notificationDao().getNotificationsByRange(startTime, endTime)
                     } else {
                         database.notificationDao().getNotificationsByPackageAndRange(packageName, startTime, endTime)
                     }
                     
-                    // Agrupar por día
-                    val dateFormat = SimpleDateFormat("dd/MM", Locale.getDefault())
-                    val dailyCounts = notifications
+                    // Agrupar por hora
+                    val dateFormat = SimpleDateFormat("dd/MM HH:00", Locale.getDefault())
+                    val hourlyCounts = notifications
                         .groupBy { notification ->
-                            val date = Date(notification.timestamp)
-                            dateFormat.format(date)
+                            val cal = Calendar.getInstance()
+                            cal.timeInMillis = notification.timestamp
+                            cal.set(Calendar.MINUTE, 0)
+                            cal.set(Calendar.SECOND, 0)
+                            cal.set(Calendar.MILLISECOND, 0)
+                            dateFormat.format(Date(cal.timeInMillis))
                         }
-                        .map { (date, notifs) -> date to notifs.size }
+                        .map { (hour, notifs) -> hour to notifs.size }
                         .sortedBy { it.first }
                     
-                    _lineChartData.postValue(dailyCounts)
+                    _lineChartData.postValue(hourlyCounts)
                 } catch (e: Exception) {
                     _lineChartData.postValue(emptyList())
                 }
@@ -124,24 +125,10 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun loadPieChartData(daysRange: Int) {
+    fun loadPieChartData(startTime: Long, endTime: Long) {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
                 try {
-                    val endTime = System.currentTimeMillis()
-                    val startTime = when (daysRange) {
-                        1 -> { // Hoy: desde medianoche hasta ahora
-                            val cal = Calendar.getInstance()
-                            cal.timeInMillis = endTime
-                            cal.set(Calendar.HOUR_OF_DAY, 0)
-                            cal.set(Calendar.MINUTE, 0)
-                            cal.set(Calendar.SECOND, 0)
-                            cal.set(Calendar.MILLISECOND, 0)
-                            cal.timeInMillis
-                        }
-                        else -> endTime - (daysRange * 24 * 60 * 60 * 1000L)
-                    }
-                    
                     val notifications = database.notificationDao().getNotificationsByRange(startTime, endTime)
                     val appStats = notifications
                         .groupBy { it.packageName }
@@ -163,11 +150,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                         .sortedByDescending { it.notificationCount }
                     
                     _pieChartData.postValue(appStats)
-                    // También actualizar las estadísticas de aplicaciones filtradas por fecha
-                    _notificationsByApp.postValue(appStats)
                 } catch (e: Exception) {
                     _pieChartData.postValue(emptyList())
-                    _notificationsByApp.postValue(emptyList())
                 }
             }
         }

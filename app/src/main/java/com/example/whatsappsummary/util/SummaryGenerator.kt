@@ -32,7 +32,7 @@ class SummaryGenerator(
     private val urlBase = "https://openrouter.ai/api/v1/chat/completions"
 
     // Variables globales para API key y model
-    private val defaultApiKey = "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"
+    private val defaultApiKey = "YOUR API"
     private val defaultModel = "arcee-ai/trinity-large-preview:free"
 
     suspend fun generateDailySummary(

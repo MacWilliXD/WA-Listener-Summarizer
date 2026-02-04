@@ -70,15 +70,21 @@ class AppStatsAdapter(
 
             // Cambiar apariencia visual para aplicaciones ignoradas
             if (isIgnored) {
-                binding.root.alpha = 0.5f
+                // Aplicar estilo completo de ignorado a toda la card
+                binding.root.alpha = 0.7f
+                binding.root.setCardBackgroundColor(ContextCompat.getColor(context, android.R.color.background_light))
                 binding.textAppName.setTextColor(ContextCompat.getColor(context, R.color.colorTextSecondary))
                 binding.textPackageName.setTextColor(ContextCompat.getColor(context, R.color.colorTextSecondary))
                 binding.textNotificationCount.setTextColor(ContextCompat.getColor(context, R.color.colorTextSecondary))
+                binding.imageAppIcon.alpha = 0.6f
             } else {
+                // Restaurar estilo normal
                 binding.root.alpha = 1.0f
+                binding.root.setCardBackgroundColor(ContextCompat.getColor(context, android.R.color.white))
                 binding.textAppName.setTextColor(ContextCompat.getColor(context, R.color.colorTextPrimary))
                 binding.textPackageName.setTextColor(ContextCompat.getColor(context, R.color.colorTextSecondary))
                 binding.textNotificationCount.setTextColor(ContextCompat.getColor(context, R.color.colorTextPrimary))
+                binding.imageAppIcon.alpha = 1.0f
             }
 
             // Intentar cargar el icono de la aplicación
@@ -107,7 +113,8 @@ class AppStatsAdapter(
             oldItem: AppNotificationStats,
             newItem: AppNotificationStats
         ): Boolean {
-            return oldItem == newItem
+            // Siempre retornar false para forzar el rebind y verificar el estado de ignorado
+            return false
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.example.whatsappsummary.ui
 
+import android.app.DatePickerDialog
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
@@ -35,10 +36,13 @@ class DashboardActivity : AppCompatActivity() {
     private lateinit var viewModel: DashboardViewModel
     private lateinit var adapter: AppStatsAdapter
     private var selectedPackage: String = "all"
-    private var selectedRange: Int = 7 // días
-    private var selectedPieRange: Int = 7 // días para el PieChart
-    private var selectedTopAppsLimit: Int = 10 // límite de aplicaciones a mostrar en lista
+    private var selectedStartLine: Long = 0L
+    private var selectedEndLine: Long = 0L
+    private var selectedStartPie: Long = 0L
+    private var selectedEndPie: Long = 0L
+    private var selectedTopAppsLimit: Int = Int.MAX_VALUE // límite de aplicaciones a mostrar en lista
     private var selectedPieTopAppsLimit: Int = 10 // límite de aplicaciones a mostrar en pie chart
+    private var zoomMode: String = "xy" // "x", "y", o "xy"
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -46,15 +50,32 @@ class DashboardActivity : AppCompatActivity() {
         setContentView(binding.root)
 
         setupViewModel()
+        setupDateDefaults()
         setupRecyclerView()
         setupCharts()
         setupSpinners()
         setupObservers()
         setupButtons()
+
+        // Inicializar modo de zoom por defecto
+        setZoomMode("xy")
+
+        // Load initial chart data
+        viewModel.loadPieChartData(selectedStartPie, selectedEndPie)
+        viewModel.loadLineChartData(selectedPackage, selectedStartLine, selectedEndLine)
     }
 
     private fun setupViewModel() {
         viewModel = ViewModelProvider(this)[DashboardViewModel::class.java]
+    }
+
+    private fun setupDateDefaults() {
+        val cal = Calendar.getInstance()
+        selectedEndLine = cal.timeInMillis
+        selectedEndPie = cal.timeInMillis
+        cal.add(Calendar.DAY_OF_MONTH, -7)
+        selectedStartLine = cal.timeInMillis
+        selectedStartPie = cal.timeInMillis
     }
 
     private fun setupRecyclerView() {
@@ -116,40 +137,57 @@ class DashboardActivity : AppCompatActivity() {
             description.isEnabled = false
             setTouchEnabled(true)
             setDrawGridBackground(false)
-            xAxis.position = XAxis.XAxisPosition.BOTTOM
-            xAxis.setDrawGridLines(false)
+            isDragEnabled = true
+            setScaleEnabled(true)
+            setPinchZoom(true)
+            legend.isEnabled = false // Deshabilitar leyenda para diseño más limpio
+
+            // Configurar eje X
+            xAxis.apply {
+                position = XAxis.XAxisPosition.BOTTOM
+                setDrawGridLines(true)
+                gridColor = Color.parseColor("#E0E0E0")
+                gridLineWidth = 1f
+                textColor = Color.parseColor("#666666")
+                textSize = 11f
+                setDrawAxisLine(true)
+                axisLineColor = Color.parseColor("#CCCCCC")
+                axisLineWidth = 1f
+                granularity = 1f
+                labelRotationAngle = -45f
+                setAvoidFirstLastClipping(true)
+            }
+
+            // Configurar eje Y izquierdo
+            axisLeft.apply {
+                setDrawGridLines(true)
+                gridColor = Color.parseColor("#E0E0E0")
+                gridLineWidth = 1f
+                textColor = Color.parseColor("#666666")
+                textSize = 11f
+                setDrawAxisLine(true)
+                axisLineColor = Color.parseColor("#CCCCCC")
+                axisLineWidth = 1f
+                setDrawZeroLine(true)
+                zeroLineColor = Color.parseColor("#999999")
+                zeroLineWidth = 1f
+                axisMinimum = 0f
+            }
+
+            // Deshabilitar eje Y derecho
             axisRight.isEnabled = false
-            legend.isEnabled = true
+
+            // Configurar márgenes
+            setExtraOffsets(10f, 20f, 20f, 10f)
+
+            // Configurar zoom y pan
+            setVisibleXRangeMaximum(20f) // Máximo 20 puntos visibles
+            setVisibleXRangeMinimum(3f)  // Mínimo 3 puntos visibles
         }
     }
 
     private fun setupSpinners() {
-        // Spinner de rango de tiempo para PieChart
-        val pieRanges = arrayOf("Hoy", "Última semana", "Último mes", "Últimos 3 meses", "Último año")
-        val pieRangeAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, pieRanges)
-        pieRangeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        binding.spinnerPieRange.adapter = pieRangeAdapter
-        binding.spinnerPieRange.setSelection(1) // Última semana por defecto
-        
-        // Cargar datos iniciales del PieChart
-        viewModel.loadPieChartData(selectedPieRange)
-        
-        binding.spinnerPieRange.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                selectedPieRange = when (position) {
-                    0 -> 1
-                    1 -> 7
-                    2 -> 30
-                    3 -> 90
-                    4 -> 365
-                    else -> 7
-                }
-                viewModel.loadPieChartData(selectedPieRange)
-            }
-            override fun onNothingSelected(parent: AdapterView<*>?) {}
-        }
-        
-        // Spinner para límite de aplicaciones en PieChart
+        // Spinner de límite de aplicaciones en PieChart
         val pieTopAppsLimits = arrayOf("Top 5", "Top 10", "Top 15", "Top 30", "Todos")
         val pieTopAppsAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, pieTopAppsLimits)
         pieTopAppsAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
@@ -174,23 +212,9 @@ class DashboardActivity : AppCompatActivity() {
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
         
-        // Spinner de rango de tiempo para LineChart
-        val ranges = arrayOf("Última semana", "Último mes", "Últimos 3 meses", "Último año")
-        val rangeAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, ranges)
-        rangeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
-        binding.spinnerRange.adapter = rangeAdapter
-        binding.spinnerRange.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                selectedRange = when (position) {
-                    0 -> 7
-                    1 -> 30
-                    2 -> 90
-                    3 -> 365
-                    else -> 7
-                }
-                viewModel.loadLineChartData(selectedPackage, selectedRange)
-            }
-            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        // Botón para rango de fechas del PieChart
+        binding.buttonPieDateRange.setOnClickListener {
+            showDateRangePicker(true)
         }
         
         // Spinner para límite de aplicaciones mostradas
@@ -198,7 +222,7 @@ class DashboardActivity : AppCompatActivity() {
         val topAppsAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, topAppsLimits)
         topAppsAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         binding.spinnerTopApps.adapter = topAppsAdapter
-        binding.spinnerTopApps.setSelection(1) // Top 10 por defecto
+        binding.spinnerTopApps.setSelection(4) // Todos por defecto
         binding.spinnerTopApps.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 selectedTopAppsLimit = when (position) {
@@ -207,7 +231,7 @@ class DashboardActivity : AppCompatActivity() {
                     2 -> 15
                     3 -> 30
                     4 -> Int.MAX_VALUE // Todos
-                    else -> 10
+                    else -> Int.MAX_VALUE
                 }
                 // Actualizar solo la lista con el nuevo límite
                 viewModel.notificationsByApp.value?.let { appStats ->
@@ -228,7 +252,7 @@ class DashboardActivity : AppCompatActivity() {
         binding.spinnerApp.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 selectedPackage = if (position == 0) "all" else apps[position - 1]
-                viewModel.loadLineChartData(selectedPackage, selectedRange)
+                viewModel.loadLineChartData(selectedPackage, selectedStartLine, selectedEndLine)
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
@@ -277,22 +301,69 @@ class DashboardActivity : AppCompatActivity() {
             Entry(index.toFloat(), count.toFloat())
         }
 
-        val dataSet = LineDataSet(entries, "Notificaciones").apply {
-            color = Color.BLUE
-            setCircleColor(Color.BLUE)
-            lineWidth = 2f
-            circleRadius = 4f
+        val dataSet = LineDataSet(entries, "").apply {
+            // Colores y estilo de línea
+            color = Color.parseColor("#3F51B5") // Azul material design
+            lineWidth = 3f
+            setDrawCircles(true)
+            setCircleColor(Color.parseColor("#3F51B5"))
+            circleRadius = 5f
+            setDrawCircleHole(true)
+            // circleHoleColor = Color.WHITE  // Default is already white
+            circleHoleRadius = 2.5f
+
+            // Área bajo la línea
+            setDrawFilled(true)
+            fillColor = Color.parseColor("#3F51B5")
+            fillAlpha = 30
+
+            // Valores
             setDrawValues(true)
             valueTextSize = 10f
+            valueTextColor = Color.parseColor("#3F51B5")
+            valueFormatter = object : IValueFormatter {
+                override fun getFormattedValue(value: Float, entry: com.github.mikephil.charting.data.Entry?, dataSetIndex: Int, viewPortHandler: ViewPortHandler?): String {
+                    return value.toInt().toString()
+                }
+            }
+
+            // Efectos visuales
+            mode = LineDataSet.Mode.CUBIC_BEZIER // Línea suavizada
+            cubicIntensity = 0.2f
+
+            // Resaltar puntos
+            highLightColor = Color.parseColor("#FF9800")
+            highlightLineWidth = 2f
+            setDrawHorizontalHighlightIndicator(false)
+            setDrawVerticalHighlightIndicator(true)
         }
 
         val data = LineData(dataSet)
         binding.lineChart.apply {
             this.data = data
             xAxis.valueFormatter = IndexAxisValueFormatter(dailyData.map { it.first })
-            xAxis.granularity = 1f
-            xAxis.labelRotationAngle = -45f
-            invalidate()
+
+            // Listener para mostrar información al tocar
+            setOnChartValueSelectedListener(object : OnChartValueSelectedListener {
+                override fun onValueSelected(e: com.github.mikephil.charting.data.Entry?, h: Highlight?) {
+                    if (e != null && e.x.toInt() < dailyData.size) {
+                        val dataPoint = dailyData[e.x.toInt()]
+                        val hour = dataPoint.first
+                        val count = dataPoint.second
+                        Toast.makeText(this@DashboardActivity, "$hour: $count notificaciones", Toast.LENGTH_SHORT).show()
+                    }
+                }
+
+                override fun onNothingSelected() {
+                    // No hacer nada
+                }
+            })
+
+            // Animación suave
+            animateXY(1500, 1500)
+
+            // Aplicar configuración de zoom según el modo seleccionado
+            applyZoomConfiguration()
         }
     }
 
@@ -334,8 +405,8 @@ class DashboardActivity : AppCompatActivity() {
         binding.buttonRefresh.setOnClickListener {
             // Recargar todos los datos del dashboard
             viewModel.loadDashboardData()
-            viewModel.loadPieChartData(selectedPieRange)
-            viewModel.loadLineChartData(selectedPackage, selectedRange)
+            viewModel.loadPieChartData(selectedStartPie, selectedEndPie)
+            viewModel.loadLineChartData(selectedPackage, selectedStartLine, selectedEndLine)
             Toast.makeText(this, "Dashboard actualizado", Toast.LENGTH_SHORT).show()
         }
 
@@ -343,6 +414,69 @@ class DashboardActivity : AppCompatActivity() {
             // Navegar a la vista de lista de chats sin filtro
             val intent = Intent(this, MainActivity::class.java)
             startActivity(intent)
+        }
+
+        binding.buttonLineDateRange.setOnClickListener {
+            showDateRangePicker(false)
+        }
+
+        // Configurar botones de zoom
+        binding.buttonZoomX.setOnClickListener {
+            setZoomMode("x")
+        }
+
+        binding.buttonZoomY.setOnClickListener {
+            setZoomMode("y")
+        }
+
+        binding.buttonZoomXY.setOnClickListener {
+            setZoomMode("xy")
+        }
+    }
+
+    private fun setZoomMode(mode: String) {
+        zoomMode = mode
+
+        // Actualizar apariencia de botones
+        when (mode) {
+            "x" -> {
+                binding.buttonZoomX.setBackgroundColor(Color.parseColor("#E3F2FD")) // Azul claro
+                binding.buttonZoomY.setBackgroundColor(Color.TRANSPARENT)
+                binding.buttonZoomXY.setBackgroundColor(Color.TRANSPARENT)
+            }
+            "y" -> {
+                binding.buttonZoomX.setBackgroundColor(Color.TRANSPARENT)
+                binding.buttonZoomY.setBackgroundColor(Color.parseColor("#E3F2FD")) // Azul claro
+                binding.buttonZoomXY.setBackgroundColor(Color.TRANSPARENT)
+            }
+            "xy" -> {
+                binding.buttonZoomX.setBackgroundColor(Color.TRANSPARENT)
+                binding.buttonZoomY.setBackgroundColor(Color.TRANSPARENT)
+                binding.buttonZoomXY.setBackgroundColor(Color.parseColor("#E3F2FD")) // Azul claro
+            }
+        }
+
+        // Aplicar configuración de zoom al chart actual
+        applyZoomConfiguration()
+    }
+
+    private fun applyZoomConfiguration() {
+        binding.lineChart.apply {
+            when (zoomMode) {
+                "x" -> {
+                    setScaleXEnabled(true)
+                    setScaleYEnabled(false)
+                }
+                "y" -> {
+                    setScaleXEnabled(false)
+                    setScaleYEnabled(true)
+                }
+                "xy" -> {
+                    setScaleXEnabled(true)
+                    setScaleYEnabled(true)
+                }
+            }
+            invalidate()
         }
     }
 
@@ -360,7 +494,7 @@ class DashboardActivity : AppCompatActivity() {
                         // Recargar los datos del dashboard para reflejar los cambios
                         viewModel.loadDashboardData()
                         // También recargar datos del PieChart
-                        viewModel.loadPieChartData(selectedPieRange)
+                        viewModel.loadPieChartData(selectedStartPie, selectedEndPie)
 
                         // Mostrar mensaje de confirmación
                         Toast.makeText(this@DashboardActivity, "Aplicación y sus notificaciones eliminadas", Toast.LENGTH_SHORT).show()
@@ -377,11 +511,57 @@ class DashboardActivity : AppCompatActivity() {
         dialog.show()
     }
 
+    private fun showDateRangePicker(isPie: Boolean) {
+        val cal = Calendar.getInstance()
+        val currentStart = if (isPie) selectedStartPie else selectedStartLine
+        val currentEnd = if (isPie) selectedEndPie else selectedEndLine
+
+        cal.timeInMillis = currentStart
+        val startYear = cal.get(Calendar.YEAR)
+        val startMonth = cal.get(Calendar.MONTH)
+        val startDay = cal.get(Calendar.DAY_OF_MONTH)
+
+        DatePickerDialog(this, { _, year, month, day ->
+            val startCal = Calendar.getInstance()
+            startCal.set(year, month, day, 0, 0, 0)
+            startCal.set(Calendar.MILLISECOND, 0)
+            val selectedStart = startCal.timeInMillis
+
+            // Now pick end date
+            cal.timeInMillis = currentEnd
+            val endYear = cal.get(Calendar.YEAR)
+            val endMonth = cal.get(Calendar.MONTH)
+            val endDay = cal.get(Calendar.DAY_OF_MONTH)
+
+            DatePickerDialog(this, { _, eYear, eMonth, eDay ->
+                val endCal = Calendar.getInstance()
+                endCal.set(eYear, eMonth, eDay, 23, 59, 59)
+                endCal.set(Calendar.MILLISECOND, 999)
+                val selectedEnd = endCal.timeInMillis
+
+                if (selectedStart > selectedEnd) {
+                    Toast.makeText(this, "La fecha de inicio no puede ser posterior a la fecha de fin", Toast.LENGTH_SHORT).show()
+                    return@DatePickerDialog
+                }
+
+                if (isPie) {
+                    selectedStartPie = selectedStart
+                    selectedEndPie = selectedEnd
+                    viewModel.loadPieChartData(selectedStartPie, selectedEndPie)
+                } else {
+                    selectedStartLine = selectedStart
+                    selectedEndLine = selectedEnd
+                    viewModel.loadLineChartData(selectedPackage, selectedStartLine, selectedEndLine)
+                }
+            }, endYear, endMonth, endDay).show()
+        }, startYear, startMonth, startDay).show()
+    }
+
     override fun onResume() {
         super.onResume()
         // Recargar datos cuando volvemos a la actividad
         viewModel.loadDashboardData()
         // También recargar datos filtrados del PieChart
-        viewModel.loadPieChartData(selectedPieRange)
+        viewModel.loadPieChartData(selectedStartPie, selectedEndPie)
     }
 }

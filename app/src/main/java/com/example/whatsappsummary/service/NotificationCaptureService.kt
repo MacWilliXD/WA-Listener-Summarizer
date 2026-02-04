@@ -191,7 +191,7 @@ class NotificationCaptureService : NotificationListenerService() {
         }
     }
 
-    private fun isRecentDuplicate(signature: String, windowMs: Long = 5_000L): Boolean {
+    private fun isRecentDuplicate(signature: String, windowMs: Long = 15_000L): Boolean {
         val now = System.currentTimeMillis()
         synchronized(recentLock) {
             // remove old entries older than 60s to keep map small
@@ -257,12 +257,14 @@ class NotificationCaptureService : NotificationListenerService() {
             database.chatDao().updateChat(updatedChat)
         }
 
-        // Evitar duplicados en mensajes generales
-        val dedupeWindowMs = 5_000L
+        // Evitar duplicados en mensajes generales con ventana más amplia
+        val dedupeWindowMs = 10_000L // Aumentado a 10 segundos
         val sinceTime = timestamp - dedupeWindowMs
         val similarCount = database.messageDao().countSimilarRecent(finalChatId, senderName, actualMessage, sinceTime)
         val exactCount = database.messageDao().countExactMessage(finalChatId, actualMessage, timestamp)
-        if (exactCount == 0 && similarCount == 0) {
+        // También verificar en notificaciones duplicadas
+        val notifCount = database.notificationDao().countExactNotification(finalChatId, actualMessage, sinceTime, timestamp)
+        if (exactCount == 0 && similarCount == 0 && notifCount == 0) {
             val message = Message(
                 chatId = finalChatId,
                 senderName = senderName,
@@ -376,11 +378,13 @@ class NotificationCaptureService : NotificationListenerService() {
         }
 
         // Evitar duplicados: si ya existe un mensaje similar en los últimos segundos, omitir
-        val dedupeWindowMs = 5_000L // 5 segundos
+        val dedupeWindowMs = 10_000L // Aumentado a 10 segundos
         val sinceTime = timestamp - dedupeWindowMs
         val similarCount = database.messageDao().countSimilarRecent(chatId, senderName, actualMessage, sinceTime)
         val exactCount = database.messageDao().countExactMessage(chatId, actualMessage, timestamp)
-        if (exactCount == 0 && similarCount == 0) {
+        // También verificar en notificaciones duplicadas
+        val notifCount = database.notificationDao().countExactNotification(chatId, actualMessage, sinceTime, timestamp)
+        if (exactCount == 0 && similarCount == 0 && notifCount == 0) {
             // Guardar el mensaje
             val message = Message(
                 chatId = chatId,
