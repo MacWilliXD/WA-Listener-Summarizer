@@ -7,19 +7,32 @@ import com.example.whatsappsummary.data.entity.Chat
 
 @Dao
 interface ChatDao {
-        @Query("SELECT DISTINCT packageName FROM chats WHERE packageName != '' ORDER BY packageName")
-        fun getAllPackages(): List<String>
-
-        @Query("SELECT * FROM chats WHERE packageName = :packageName ORDER BY lastMessageTime DESC")
-        fun getChatsByPackage(packageName: String): List<Chat>
-    @Query("SELECT * FROM chats ORDER BY lastMessageTime DESC")
+    
+    @Query("""
+        SELECT chats.* FROM chats
+        INNER JOIN apps ON chats.appId = apps.id
+        WHERE apps.packageName = :packageName
+        ORDER BY (SELECT MAX(timestamp) FROM notifications WHERE notifications.chat_id = chats.chatId) DESC
+    """)
+    fun getChatsByPackage(packageName: String): List<Chat>
+    
+    @Query("""
+        SELECT * FROM chats 
+        ORDER BY (SELECT MAX(timestamp) FROM notifications WHERE notifications.chat_id = chats.chatId) DESC
+    """)
     fun getAllChats(): LiveData<List<Chat>>
     
-    @Query("SELECT * FROM chats ORDER BY lastMessageTime DESC")
+    @Query("""
+        SELECT * FROM chats 
+        ORDER BY (SELECT MAX(timestamp) FROM notifications WHERE notifications.chat_id = chats.chatId) DESC
+    """)
     fun getAllChatsList(): List<Chat>
     
     @Query("SELECT * FROM chats WHERE chatId = :chatId")
     suspend fun getChatById(chatId: String): Chat?
+    
+    @Query("SELECT * FROM chats WHERE appId = :appId")
+    suspend fun getChatsByAppId(appId: Long): List<Chat>
     
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertChat(chat: Chat)

@@ -7,7 +7,7 @@ import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
 import com.example.whatsappsummary.data.AppDatabase
 import com.example.whatsappsummary.data.entity.DailySummary
-import com.example.whatsappsummary.data.entity.Message
+import com.example.whatsappsummary.data.entity.Notification
 import com.example.whatsappsummary.repository.NotificationRepository
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
@@ -18,8 +18,8 @@ import java.util.Locale
 class ChatDetailViewModel(application: Application) : AndroidViewModel(application) {
     private val repository: NotificationRepository
     
-    private val _messages = MutableLiveData<List<Message>>()
-    val messages: LiveData<List<Message>> = _messages
+    private val _messages = MutableLiveData<List<Notification>>()
+    val messages: LiveData<List<Notification>> = _messages
     
     private val _summaries = MutableLiveData<List<DailySummary>>()
     val summaries: LiveData<List<DailySummary>> = _summaries
@@ -41,28 +41,31 @@ class ChatDetailViewModel(application: Application) : AndroidViewModel(applicati
     init {
         val database = AppDatabase.getDatabase(application)
         repository = NotificationRepository(
+            database.appDao(),
             database.chatDao(),
-            database.messageDao(),
-            database.dailySummaryDao(),
-            database.notificationDao()
+            database.notificationDao(),
+            database.dailySummaryDao()
         )
     }
 
     fun loadChatData(chatId: String) {
         currentChatId = chatId
         
-        // Cargar mensajes (observables)
-        repository.getMessagesByChatId(chatId).observeForever { messageList ->
-            // apply timestamp and text filter if set
-            val filtered = messageList.filter { msg ->
-                val inRange = if (filterStart != null && filterEnd != null) msg.timestamp in filterStart!!..filterEnd!! else true
-                val matchesText = filterText?.let { ft ->
-                    val q = normalize(ft)
-                    normalize(msg.messageText ?: "").contains(q) || normalize(msg.senderName ?: "").contains(q)
-                } ?: true
-                inRange && matchesText
+        // Cargar mensajes/notificaciones
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                val notifList = repository.getNotificationsByChatId(chatId)
+                // apply timestamp and text filter if set
+                val filtered = notifList.filter { notif ->
+                    val inRange = if (filterStart != null && filterEnd != null) notif.timestamp in filterStart!!..filterEnd!! else true
+                    val matchesText = filterText?.let { ft ->
+                        val q = normalize(ft)
+                        normalize(notif.text).contains(q) || normalize(notif.sender ?: "").contains(q)
+                    } ?: true
+                    inRange && matchesText
+                }
+                _messages.postValue(filtered)
             }
-            _messages.value = filtered
         }
         
         // Cargar resúmenes (observables)
@@ -71,7 +74,7 @@ class ChatDetailViewModel(application: Application) : AndroidViewModel(applicati
                 val inRange = if (filterStart != null && filterEnd != null) s.timestamp in filterStart!!..filterEnd!! else true
                 val matchesText = filterText?.let { ft ->
                     val q = normalize(ft)
-                    normalize(s.summary ?: "").contains(q) || normalize(s.date ?: "").contains(q)
+                    normalize(s.summary).contains(q) || normalize(s.date).contains(q)
                 } ?: true
                 inRange && matchesText
             }
@@ -98,29 +101,27 @@ class ChatDetailViewModel(application: Application) : AndroidViewModel(applicati
         // reload filtered data for messages and summaries
         viewModelScope.launch {
             if (startTs != null && endTs != null) {
-                // messages via repository (suspend)
-                val msgs = withContext(Dispatchers.IO) { repository.getMessagesByDateRange(cid, startTs, endTs) }
+                // notificaciones via repository (suspend)
+                val notifs = withContext(Dispatchers.IO) { repository.getNotificationsByDateRange(cid, startTs, endTs) }
                 // apply text filter if present
                 val q = filterText?.let { normalize(it) }
-                val filteredMsgs = q?.let { pattern ->
-                    msgs.filter { m ->
-                        normalize(m.messageText ?: "").contains(pattern) || normalize(m.senderName ?: "").contains(pattern)
+                val filteredNotifs = q?.let { pattern ->
+                    notifs.filter { n ->
+                        normalize(n.text).contains(pattern) || normalize(n.sender ?: "").contains(pattern)
                     }
-                } ?: msgs
-                _messages.postValue(filteredMsgs.sortedByDescending { it.timestamp })
+                } ?: notifs
+                _messages.postValue(filteredNotifs.sortedBy { it.timestamp })
 
                 val sums = withContext(Dispatchers.IO) { repository.getSummariesByTimestampRange(cid, startTs, endTs) }
                 val filteredSums = q?.let { pattern ->
                     sums.filter { s ->
-                        normalize(s.summary ?: "").contains(pattern) || normalize(s.date ?: "").contains(pattern)
+                        normalize(s.summary).contains(pattern) || normalize(s.date).contains(pattern)
                     }
                 } ?: sums
                 _summaries.postValue(filteredSums)
             } else {
-                // clear filter -> reload observables
-                val allMsgs = repository.getMessagesByChatId(cid)
-                // observeForever previously registered in loadChatData; rely on that to update _messages
-                val allSums = repository.getSummariesByChatId(cid)
+                // clear filter -> reload
+                loadChatData(cid)
             }
         }
     }
@@ -137,11 +138,11 @@ class ChatDetailViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     // Fallback local summarizer: genera un párrafo conciso a partir de los últimos mensajes visibles
-    private fun generateLocalSummary(messages: List<Message>): String {
+    private fun generateLocalSummary(messages: List<Notification>): String {
         if (messages.isEmpty()) return "(sin mensajes visibles)"
 
         // Obtener participantes (hasta 4)
-        val participants = messages.mapNotNull { it.senderName }.distinct().take(4)
+        val participants = messages.mapNotNull { it.sender }.distinct().take(4)
         val partStr = when (participants.size) {
             0 -> ""
             1 -> "Participante: ${participants[0]}. "
@@ -151,8 +152,8 @@ class ChatDetailViewModel(application: Application) : AndroidViewModel(applicati
         // Tomar los últimos mensajes (hasta 6), formar frases cortas
         val recent = messages.sortedBy { it.timestamp }.takeLast(6)
         val msgParts = recent.map { m ->
-            val author = m.senderName ?: ""
-            val body = (m.messageText ?: "").replace("\\s+".toRegex(), " ").trim()
+            val author = m.sender ?: ""
+            val body = m.text.replace("\\s+".toRegex(), " ").trim()
             if (author.isNotBlank()) "$author: $body" else body
         }.filter { it.isNotBlank() }
 
@@ -164,8 +165,8 @@ class ChatDetailViewModel(application: Application) : AndroidViewModel(applicati
         return paragraph
     }
     
-    fun deleteMessage(message: Message) = viewModelScope.launch {
-        repository.deleteMessage(message)
+    fun deleteNotification(notification: Notification) = viewModelScope.launch {
+        // No hay deleteNotification en repository por ahora, se puede agregar si es necesario
     }
     
     fun deleteSummary(summary: DailySummary) = viewModelScope.launch {
@@ -191,10 +192,10 @@ class ChatDetailViewModel(application: Application) : AndroidViewModel(applicati
                 val now = System.currentTimeMillis()
                 val msgs = withContext(Dispatchers.IO) {
                     if (filterStart != null && filterEnd != null) {
-                        repository.getMessagesByDateRange(cid, filterStart!!, filterEnd!!)
+                        repository.getNotificationsByDateRange(cid, filterStart!!, filterEnd!!)
                     } else {
                         // everything up to now
-                        repository.getMessagesByDateRange(cid, 0L, now)
+                        repository.getNotificationsByDateRange(cid, 0L, now)
                     }
                 }
 
@@ -202,7 +203,7 @@ class ChatDetailViewModel(application: Application) : AndroidViewModel(applicati
                 val q = filterText?.let { normalize(it) }
                 val visible = q?.let { pattern ->
                     msgs.filter { m ->
-                        normalize(m.messageText ?: "").contains(pattern) || normalize(m.senderName ?: "").contains(pattern)
+                        normalize(m.text).contains(pattern) || normalize(m.sender ?: "").contains(pattern)
                     }
                 } ?: msgs
 
@@ -213,8 +214,8 @@ class ChatDetailViewModel(application: Application) : AndroidViewModel(applicati
                 } else {
                     visible.sortedBy { it.timestamp }.forEach { m ->
                         val time = java.text.SimpleDateFormat("HH:mm", java.util.Locale.getDefault()).format(java.util.Date(m.timestamp))
-                        val author = m.senderName ?: ""
-                        val body = m.messageText ?: ""
+                        val author = m.sender ?: ""
+                        val body = m.text
                         contextBuilder.append("[").append(time).append("] ").append(author).append(": ").append(body).append("\n")
                     }
                 }

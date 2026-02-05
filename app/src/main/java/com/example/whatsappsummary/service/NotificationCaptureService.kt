@@ -7,13 +7,12 @@ import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import android.util.Log
 import com.example.whatsappsummary.data.AppDatabase
+import com.example.whatsappsummary.data.entity.App
 import com.example.whatsappsummary.data.entity.Chat
-import com.example.whatsappsummary.data.entity.Message
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
-import java.text.SimpleDateFormat
 import java.util.*
 
 /**
@@ -37,28 +36,149 @@ class NotificationCaptureService : NotificationListenerService() {
         private const val WHATSAPP_BUSINESS = "com.whatsapp.w4b"
     }
 
-    private fun normalizeForCompare(s: String): String = s.toLowerCase(Locale.getDefault()).replace(" ", "")
+    /**
+     * Normaliza un nombre de chat para comparación:
+     * - Convierte a minúsculas
+     * - Elimina espacios, acentos y caracteres especiales
+     * - Mantiene solo letras y números
+     */
+    private fun normalizeForCompare(s: String): String {
+        // Normalizar unicode (eliminar acentos)
+        val normalized = java.text.Normalizer.normalize(s, java.text.Normalizer.Form.NFD)
+        // Eliminar marcas diacríticas, convertir a minúsculas, eliminar espacios y caracteres especiales
+        return normalized
+            .replace(Regex("\\p{M}"), "") // Eliminar marcas diacríticas
+            .lowercase(Locale.getDefault())
+            .replace(Regex("[^a-z0-9]"), "") // Solo letras y números
+    }
 
-    private fun findMatchingChatId(candidateName: String): String? {
-        val allChats = database.chatDao().getAllChatsList()
+    /**
+     * Busca o crea una aplicación en la base de datos.
+     * Retorna el ID de la app.
+     */
+    private suspend fun getOrCreateApp(packageName: String): Long {
+        // Buscar app existente
+        var app = database.appDao().getAppByPackageName(packageName)
+        
+        if (app == null) {
+            // Obtener nombre legible de la app
+            val appName = try {
+                val applicationInfo = applicationContext.packageManager.getApplicationInfo(packageName, 0)
+                applicationContext.packageManager.getApplicationLabel(applicationInfo).toString()
+            } catch (e: Exception) {
+                packageName // Fallback al package name
+            }
+            
+            // Crear nueva app
+            app = App(
+                packageName = packageName,
+                appName = appName
+            )
+            val appId = database.appDao().insertApp(app)
+            
+            // Si insertApp retorna 0 (conflicto), buscar de nuevo
+            if (appId == 0L) {
+                app = database.appDao().getAppByPackageName(packageName)
+                return app?.id ?: -1L
+            }
+            
+            return appId
+        }
+        
+        return app.id
+    }
+
+    /**
+     * Busca o crea un chat en la base de datos.
+     * Retorna el chatId.
+     */
+    private suspend fun getOrCreateChat(chatId: String, chatName: String, appId: Long, isGroup: Boolean): String {
+        var chat = database.chatDao().getChatById(chatId)
+        
+        if (chat == null) {
+            // Crear nuevo chat
+            chat = Chat(
+                chatId = chatId,
+                chatName = chatName,
+                appId = appId,
+                isGroup = isGroup,
+                unreadCount = 0
+            )
+            database.chatDao().insertChat(chat)
+        }
+        
+        return chat.chatId
+    }
+
+    /**
+     * Busca un chat existente que coincida con el nombre candidato.
+     * Compara la similitud en ambas direcciones y retorna el chatId si hay >=70% de coincidencia.
+     * 
+     * @param candidateName Nombre del chat a buscar
+     * @param appId ID de la aplicación
+     * @return chatId del chat coincidente o null si no hay coincidencia >= 70%
+     */
+    private suspend fun findMatchingChatId(candidateName: String, appId: Long): String? {
+        val allChats = database.chatDao().getChatsByAppId(appId)
         if (allChats.isEmpty()) return null
+        
+        val normalizedCandidate = normalizeForCompare(candidateName)
+        if (normalizedCandidate.isEmpty()) return null
+        
         var maxScore = 0.0
         var bestChat: Chat? = null
-        for (c in allChats) {
-            val na = normalizeForCompare(c.chatName)
-            val nb = normalizeForCompare(candidateName)
-            val minLen = if (na.length < nb.length) na.length else nb.length
-            var match = 0
-            for (i in 0 until minLen) {
-                if (na[i] == nb[i]) match++
-            }
-            val score = if (na.isEmpty() || nb.isEmpty()) 0.0 else match.toDouble() / (if (na.length > nb.length) na.length else nb.length)
-            if (score > maxScore) {
-                maxScore = score
-                bestChat = c
+        
+        for (chat in allChats) {
+            val normalizedExisting = normalizeForCompare(chat.chatName)
+            if (normalizedExisting.isEmpty()) continue
+            
+            // Calcular similitud en ambas direcciones
+            val score1 = calculateSimilarity(normalizedCandidate, normalizedExisting)
+            val score2 = calculateSimilarity(normalizedExisting, normalizedCandidate)
+            
+            // Tomar el máximo de ambas direcciones
+            val finalScore = maxOf(score1, score2)
+            
+            if (finalScore > maxScore) {
+                maxScore = finalScore
+                bestChat = chat
             }
         }
-        return if (maxScore > 0.75) bestChat?.chatId else null
+        
+        // Retornar el chat si la similitud es >= 70%
+        return if (maxScore >= 0.70) {
+            Log.d(TAG, "Chat match found: '$candidateName' -> '${bestChat?.chatName}' (similarity: ${maxScore * 100}%)")
+            bestChat?.chatId
+        } else {
+            Log.d(TAG, "No matching chat found for '$candidateName' (best similarity: ${maxScore * 100}%)")
+            null
+        }
+    }
+    
+    /**
+     * Calcula la similitud entre dos strings normalizados.
+     * Retorna un valor entre 0.0 y 1.0 indicando el porcentaje de caracteres que coinciden
+     * en las mismas posiciones.
+     * 
+     * @param str1 Primer string normalizado
+     * @param str2 Segundo string normalizado
+     * @return Porcentaje de similitud (0.0 a 1.0)
+     */
+    private fun calculateSimilarity(str1: String, str2: String): Double {
+        if (str1.isEmpty() || str2.isEmpty()) return 0.0
+        
+        val minLen = minOf(str1.length, str2.length)
+        val maxLen = maxOf(str1.length, str2.length)
+        
+        var matches = 0
+        for (i in 0 until minLen) {
+            if (str1[i] == str2[i]) {
+                matches++
+            }
+        }
+        
+        // Calcular similitud basada en el string más largo
+        return matches.toDouble() / maxLen.toDouble()
     }
 
     override fun onCreate() {
@@ -216,21 +336,35 @@ class NotificationCaptureService : NotificationListenerService() {
     private suspend fun saveOtherNotification(packageName: String, title: String, text: String) {
         val timestamp = System.currentTimeMillis()
 
-        // Use packageName + normalized title as chatId to group notifications by app+title
+        // 1. Obtener o crear la App
+        val appId = getOrCreateApp(packageName)
+        if (appId == -1L) {
+            Log.e(TAG, "Failed to get or create app: $packageName")
+            return
+        }
+
+        // 2. Determinar chatId y chatName
         val rawTitle = if (title.isNotEmpty()) title else packageName
         val chatIdCandidate = com.example.whatsappsummary.util.ChatUtils.normalizeChatTitle(rawTitle)
-        val matched = findMatchingChatId(chatIdCandidate)
+        
+        // Buscar chat similar existente en la misma app
+        val matched = findMatchingChatId(chatIdCandidate, appId)
         val finalChatId = matched ?: "$packageName|$chatIdCandidate"
-        val chatName = if (matched != null) database.chatDao().getChatById(matched)?.chatName ?: chatIdCandidate else chatIdCandidate
+        val chatName = if (matched != null) {
+            database.chatDao().getChatById(matched)?.chatName ?: chatIdCandidate
+        } else {
+            chatIdCandidate
+        }
 
-        // Use senderName as app name
-        val senderName = packageName
+        // Determinar si es grupo
+        val isGroup = title.contains(":") || text.contains(":")
+        
         val actualMessage = text.trim()
         if (actualMessage.isEmpty()) return
 
         // Evitar procesar notificaciones idénticas muy recientes
         try {
-            val sig = "$finalChatId|$senderName|${'$'}{actualMessage.lowercase(Locale.getDefault())}"
+            val sig = "$finalChatId|$packageName|${actualMessage.lowercase(Locale.getDefault())}"
             if (isRecentDuplicate(sig)) {
                 Log.d(TAG, "Recent duplicate other-notification skipped: $sig")
                 return
@@ -239,99 +373,73 @@ class NotificationCaptureService : NotificationListenerService() {
             // ignore
         }
 
-        var chat = database.chatDao().getChatById(finalChatId)
-        if (chat == null) {
-            chat = Chat(
-                chatId = finalChatId,
-                chatName = chatName,
-                lastMessage = actualMessage,
-                lastMessageTime = timestamp,
-                    unreadCount = 1,
-                    packageName = packageName
-            )
-            database.chatDao().insertChat(chat)
-        } else {
-            val updatedChat = chat.copy(
-                lastMessage = actualMessage,
-                lastMessageTime = timestamp,
-                    unreadCount = chat.unreadCount + 1,
-                    packageName = packageName
-            )
-            database.chatDao().updateChat(updatedChat)
-        }
+        // 3. Obtener o crear el Chat
+        getOrCreateChat(finalChatId, chatName, appId, isGroup)
 
-        // Evitar duplicados en mensajes generales con ventana más amplia
-        val dedupeWindowMs = 10_000L // Aumentado a 10 segundos
+        // 4. Verificar duplicados en los últimos 10 segundos
+        val dedupeWindowMs = 10_000L
         val sinceTime = timestamp - dedupeWindowMs
-        val similarCount = database.messageDao().countSimilarRecent(finalChatId, senderName, actualMessage, sinceTime)
-        val exactCount = database.messageDao().countExactMessage(finalChatId, actualMessage, timestamp)
-        // También verificar en notificaciones duplicadas
         val notifCount = database.notificationDao().countExactNotification(finalChatId, actualMessage, sinceTime, timestamp)
-        if (exactCount == 0 && similarCount == 0 && notifCount == 0) {
-            val message = Message(
+        
+        if (notifCount == 0) {
+            // 5. Guardar la notificación
+            val notification = com.example.whatsappsummary.data.entity.Notification(
+                appId = appId,
                 chatId = finalChatId,
-                senderName = senderName,
-                messageText = actualMessage,
+                title = title,
+                text = actualMessage,
                 timestamp = timestamp,
-                isGroupMessage = false
+                sender = null,
+                isFromMe = false,
+                isGroup = isGroup,
+                extrasJson = null
             )
-            database.messageDao().insertMessage(message)
-            try {
-                // Save generic notification record
-                val notif = com.example.whatsappsummary.data.entity.Notification(
-                    packageName = packageName,
-                    appName = null,
-                    chatId = finalChatId,
-                    title = rawTitle,
-                    text = actualMessage,
-                    timestamp = timestamp,
-                    isGroup = false,
-                    extrasJson = null
-                )
-                database.notificationDao().insertNotification(notif)
-            } catch (e: Exception) {
-                Log.e(TAG, "Error inserting notification record", e)
-            }
+            database.notificationDao().insertNotification(notification)
+            
+            // 6. Incrementar contador de no leídos
+            database.chatDao().incrementUnreadCount(finalChatId)
         } else {
-            Log.d(TAG, "Duplicate other-notification detected, skipping")
+            Log.d(TAG, "Notificación duplicada detectada, omitiendo: $finalChatId | $actualMessage")
         }
-
-        // Automatic daily summaries are now handled by DailySummaryWorker at 23:00
-        // Removed automatic generation on notification processing
     }
 
     private suspend fun saveNotificationData(notificationPackage: String, title: String, messageText: String) {
         val timestamp = System.currentTimeMillis()
 
-        // Determinar si es un grupo (grupos suelen tener formato "Nombre: mensaje")
+        // 1. Obtener o crear la App
+        val appId = getOrCreateApp(notificationPackage)
+        if (appId == -1L) {
+            Log.e(TAG, "Failed to get or create app: $notificationPackage")
+            return
+        }
+
+        // 2. Determinar si es un grupo
         val isGroup = title.contains(":") || messageText.contains(":")
 
-        // Extraer el ID del chat (usamos el título como identificador)
+        // 3. Normalizar título del chat
         fun normalizeChatTitle(raw: String): String {
             var s = raw.trim()
-            // Eliminar sufijos comunes que indican mensajes no leídos como "(7 mensajes)", "(7)", "(99+)", "(7 unread)"
+            // Eliminar sufijos comunes que indican mensajes no leídos
             s = s.replace(Regex("\\s*\\(\\s*\\d+\\+?\\s*(mensajes|unread|unread_messages|new)?\\s*\\)\\s*$", RegexOption.IGNORE_CASE), "")
-            // También eliminar patrones como " - 7" al final si aparecen
             s = s.replace(Regex("\\s*-\\s*\\d+\\+?\\s*$"), "")
             return s.trim()
         }
-
 
         val rawChatTitle = if (title.indexOf(":") >= 0) title.substring(0, title.indexOf(":")) else title
         val chatIdCandidate = normalizeChatTitle(rawChatTitle)
         val chatName = chatIdCandidate
 
-        // Buscar chats existentes y unificar con un match si hay coincidencia >75%
-        val chatId = findMatchingChatId(chatName) ?: chatIdCandidate
+        // 4. Buscar chats existentes y unificar con un match si hay coincidencia >75%
+        val chatId = findMatchingChatId(chatName, appId) ?: chatIdCandidate
 
-        // Extraer el remitente
+        // 5. Extraer el remitente
         val senderName = if (isGroup && messageText.contains(":")) {
             messageText.substringBefore(":").trim()
         } else {
-            chatName
+            title  // En chats privados, el title contiene el nombre del contacto
         }
 
-        // Extraer el mensaje real
+        // 6. Extraer el mensaje real
         val actualMessage = if (isGroup && messageText.contains(":")) {
             messageText.substringAfter(":").trim()
         } else {
@@ -339,9 +447,9 @@ class NotificationCaptureService : NotificationListenerService() {
         }
         if (actualMessage.isEmpty()) return
 
-        // Evitar procesar notificaciones idénticas muy recientes
+        // 7. Evitar procesar notificaciones idénticas muy recientes
         try {
-            val sig = "$chatId|$senderName|${'$'}{actualMessage.lowercase(Locale.getDefault())}"
+            val sig = "$chatId|$senderName|${actualMessage.lowercase(Locale.getDefault())}"
             if (isRecentDuplicate(sig)) {
                 Log.d(TAG, "Recent duplicate whatsapp-notification skipped: $sig")
                 return
@@ -350,67 +458,36 @@ class NotificationCaptureService : NotificationListenerService() {
             // ignore
         }
 
-        // Verificar o crear el chat
-        var chat = database.chatDao().getChatById(chatId)
-        if (chat == null) {
-            chat = Chat(
-                chatId = chatId,
-                chatName = chatName,
-                lastMessage = actualMessage,
-                lastMessageTime = timestamp,
-                unreadCount = 1,
-                packageName = notificationPackage
-            )
-            database.chatDao().insertChat(chat)
-        } else {
-            // Actualizar chat existente
-            val updatedChat = chat.copy(
-                lastMessage = actualMessage,
-                lastMessageTime = timestamp,
-                unreadCount = chat.unreadCount + 1,
-                packageName = notificationPackage
-            )
-            database.chatDao().updateChat(updatedChat)
-        }
+        // 8. Obtener o crear el Chat
+        getOrCreateChat(chatId, chatName, appId, isGroup)
 
-        // Evitar duplicados: si ya existe un mensaje similar en los últimos segundos, omitir
-        val dedupeWindowMs = 10_000L // Aumentado a 10 segundos
+        // 9. Verificar duplicados en los últimos 10 segundos
+        val dedupeWindowMs = 10_000L
         val sinceTime = timestamp - dedupeWindowMs
-        val similarCount = database.messageDao().countSimilarRecent(chatId, senderName, actualMessage, sinceTime)
-        val exactCount = database.messageDao().countExactMessage(chatId, actualMessage, timestamp)
-        // También verificar en notificaciones duplicadas
         val notifCount = database.notificationDao().countExactNotification(chatId, actualMessage, sinceTime, timestamp)
-        if (exactCount == 0 && similarCount == 0 && notifCount == 0) {
-            // Guardar el mensaje
-            val message = Message(
+
+        if (notifCount == 0) {
+            // 10. Guardar la notificación/mensaje
+            val notification = com.example.whatsappsummary.data.entity.Notification(
+                appId = appId,
                 chatId = chatId,
-                senderName = senderName,
-                messageText = actualMessage,
+                title = title,
+                text = actualMessage,
                 timestamp = timestamp,
-                isGroupMessage = isGroup
+                sender = senderName,
+                isFromMe = false,
+                isGroup = isGroup,
+                extrasJson = null
             )
-            database.messageDao().insertMessage(message)
-            try {
-                val notif = com.example.whatsappsummary.data.entity.Notification(
-                    packageName = notificationPackage,
-                    appName = chatName,
-                    chatId = chatId,
-                    title = title,
-                    text = actualMessage,
-                    timestamp = timestamp,
-                    isGroup = isGroup,
-                    extrasJson = null
-                )
-                database.notificationDao().insertNotification(notif)
-            } catch (e: Exception) {
-                Log.e(TAG, "Error inserting notification record", e)
-            }
+            database.notificationDao().insertNotification(notification)
+            
+            // 11. Incrementar contador de no leídos
+            database.chatDao().incrementUnreadCount(chatId)
         } else {
-            Log.d(TAG, "Mensaje duplicado detectado, omitiendo insert: $chatId | $senderName | $actualMessage")
+            Log.d(TAG, "Mensaje duplicado detectado, omitiendo: $chatId | $senderName | $actualMessage")
         }
 
         // Automatic daily summaries are now handled by DailySummaryWorker at 23:00
-        // Removed automatic generation on notification processing
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {

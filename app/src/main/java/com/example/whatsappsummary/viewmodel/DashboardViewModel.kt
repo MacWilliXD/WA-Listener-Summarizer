@@ -62,23 +62,20 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                     val todayStart = todayCal.timeInMillis
 
                     val allNotifications = database.notificationDao().getNotificationsByRange(0, System.currentTimeMillis())
+                    val allApps = database.appDao().getAllApps()
+                    
                     val appStats = allNotifications
-                        .groupBy { it.packageName }
-                        .map { (packageName, notifications) ->
-                            // Obtener nombre real de la aplicación usando PackageManager
-                            val appName = try {
-                                val applicationInfo = getApplication<Application>().packageManager.getApplicationInfo(packageName, 0)
-                                getApplication<Application>().packageManager.getApplicationLabel(applicationInfo).toString()
-                            } catch (e: Exception) {
-                                packageName // Fallback al packageName si no se puede obtener el nombre
-                            }
+                        .groupBy { it.appId }
+                        .mapNotNull { (appId, notifications) ->
+                            // Obtener app de la base de datos
+                            val app = allApps.find { it.id == appId } ?: return@mapNotNull null
                             
                             // Contar notificaciones de hoy para esta aplicación
                             val todayNotifications = notifications.count { it.timestamp >= todayStart }
                             
                             AppNotificationStats(
-                                packageName = packageName,
-                                appName = appName,
+                                packageName = app.packageName,
+                                appName = app.appName ?: app.packageName,
                                 notificationCount = notifications.size,
                                 todayNotificationCount = todayNotifications,
                                 lastNotificationTime = notifications.maxOfOrNull { it.timestamp } ?: 0L
@@ -315,25 +312,21 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                     val todayStart = todayCal.timeInMillis
 
                     val notifications = database.notificationDao().getNotificationsByRange(startTime, endTime)
+                    val allApps = database.appDao().getAllApps()
 
                     val stats = if (selectedApp == "all") {
                         // Agrupar por aplicación
                         notifications
-                            .groupBy { it.packageName }
-                            .map { (packageName, notifs) ->
-                                val appName = try {
-                                    val applicationInfo = getApplication<Application>().packageManager.getApplicationInfo(packageName, 0)
-                                    getApplication<Application>().packageManager.getApplicationLabel(applicationInfo).toString()
-                                } catch (e: Exception) {
-                                    packageName
-                                }
-
+                            .groupBy { it.appId }
+                            .mapNotNull { (appId, notifs) ->
+                                val app = allApps.find { it.id == appId } ?: return@mapNotNull null
+                                
                                 // Contar notificaciones de hoy para esta aplicación
                                 val todayNotifications = notifs.count { it.timestamp >= todayStart }
 
                                 AppNotificationStats(
-                                    packageName = packageName,
-                                    appName = appName,
+                                    packageName = app.packageName,
+                                    appName = app.appName ?: app.packageName,
                                     notificationCount = notifs.size,
                                     todayNotificationCount = todayNotifications,
                                     lastNotificationTime = notifs.maxOfOrNull { it.timestamp } ?: 0L
@@ -341,21 +334,26 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                             }
                     } else {
                         // Agrupar por chat de la aplicación seleccionada (todos los chats: grupos e individuales)
-                        notifications
-                            .filter { it.packageName == selectedApp }
-                            .groupBy { it.title ?: "Chat sin nombre" }
-                            .map { (chatName, chatNotifs) ->
-                                // Contar notificaciones de hoy para este chat
-                                val todayNotifications = chatNotifs.count { it.timestamp >= todayStart }
+                        val app = allApps.find { it.packageName == selectedApp }
+                        if (app != null) {
+                            notifications
+                                .filter { it.appId == app.id }
+                                .groupBy { it.title ?: "Chat sin nombre" }
+                                .map { (chatName, chatNotifs) ->
+                                    // Contar notificaciones de hoy para este chat
+                                    val todayNotifications = chatNotifs.count { it.timestamp >= todayStart }
 
-                                AppNotificationStats(
-                                    packageName = selectedApp,
-                                    appName = chatName,
-                                    notificationCount = chatNotifs.size,
-                                    todayNotificationCount = todayNotifications,
-                                    lastNotificationTime = chatNotifs.maxOfOrNull { it.timestamp } ?: 0L
-                                )
-                            }
+                                    AppNotificationStats(
+                                        packageName = selectedApp,
+                                        appName = chatName,
+                                        notificationCount = chatNotifs.size,
+                                        todayNotificationCount = todayNotifications,
+                                        lastNotificationTime = chatNotifs.maxOfOrNull { it.timestamp } ?: 0L
+                                    )
+                                }
+                        } else {
+                            emptyList()
+                        }
                     }
 
                     val sortedStats = stats.sortedByDescending { it.notificationCount }

@@ -18,10 +18,10 @@ class ChatListViewModel(application: Application) : AndroidViewModel(application
     init {
         val database = AppDatabase.getDatabase(application)
         repository = NotificationRepository(
+            database.appDao(),
             database.chatDao(),
-            database.messageDao(),
-            database.dailySummaryDao(),
-            database.notificationDao()
+            database.notificationDao(),
+            database.dailySummaryDao()
         )
         allChats = repository.allChats
     }
@@ -36,8 +36,22 @@ class ChatListViewModel(application: Application) : AndroidViewModel(application
 
     fun fetchAllPackages(onResult: (List<String>) -> Unit) {
         viewModelScope.launch {
-            val pkgs = withContext(Dispatchers.IO) { repository.getAllPackages() }
-            onResult(pkgs)
+            val apps = withContext(Dispatchers.IO) { repository.getAllApps() }
+            onResult(apps.map { it.packageName })
+        }
+    }
+
+    fun getChatPackageMap(onResult: (Map<String, String>) -> Unit) {
+        viewModelScope.launch {
+            val chatPackageMap = withContext(Dispatchers.IO) {
+                val allChats = repository.getAllChatsList()
+                val allApps = repository.getAllApps()
+                val appIdToPackage = allApps.associate { it.id to it.packageName }
+                allChats.associate { chat -> 
+                    chat.chatId to (appIdToPackage[chat.appId] ?: "")
+                }
+            }
+            onResult(chatPackageMap)
         }
     }
 }

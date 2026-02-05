@@ -375,10 +375,28 @@ class DashboardActivity : AppCompatActivity() {
         val appAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, appList)
         appAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         binding.spinnerApp.adapter = appAdapter
+
+        // Encontrar la posición de la aplicación actualmente seleccionada
+        val selectedPosition = if (selectedPackage == "all") {
+            0
+        } else {
+            val appDisplayName = packageToAppNameMap[selectedPackage]
+            val appIndex = appNames.indexOf(appDisplayName)
+            if (appIndex >= 0) appIndex + 1 else 0
+        }
+
+        // Establecer la selección sin disparar el listener
+        binding.spinnerApp.setSelection(selectedPosition, false)
+
         binding.spinnerApp.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val previousPackage = selectedPackage
                 selectedPackage = if (position == 0) "all" else appNameToPackageMap[appNames[position - 1]] ?: "all"
-                viewModel.loadLineChartData(selectedPackage, selectedStartLine, selectedEndLine, selectedGranularity)
+                
+                // Solo recargar si cambió la aplicación seleccionada
+                if (previousPackage != selectedPackage) {
+                    viewModel.loadLineChartData(selectedPackage, selectedStartLine, selectedEndLine, selectedGranularity)
+                }
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }

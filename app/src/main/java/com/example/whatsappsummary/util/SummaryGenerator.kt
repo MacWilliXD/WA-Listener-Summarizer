@@ -50,12 +50,8 @@ class SummaryGenerator(
             } else {
                 todayRange()
             }
-            // Prefer notifications as the primary data source
-            val notifications = try { 
-                repository.getNotificationsByChatIdAndRange(chatId, startOfDay, endOfDay)
-            } catch (e: Exception) { 
-                emptyList<com.example.whatsappsummary.data.entity.Notification>() 
-            }
+            // Usar notificaciones como fuente primaria de datos
+            val notifications = repository.getNotificationsByDateRange(chatId, startOfDay, endOfDay)
             
             // Aplicar filtro de texto si existe
             val filteredNotifications = if (!filterText.isNullOrBlank()) {
@@ -63,76 +59,40 @@ class SummaryGenerator(
                 notifications.filter { notif ->
                     (notif.text.lowercase().contains(normalizedFilter)) ||
                     (notif.title?.lowercase()?.contains(normalizedFilter) == true) ||
-                    (notif.appName?.lowercase()?.contains(normalizedFilter) == true)
+                    (notif.sender?.lowercase()?.contains(normalizedFilter) == true)
                 }
             } else {
                 notifications
-            } 
+            }
             
             if (filteredNotifications.isEmpty()) {
-                // Fallback a mensajes antiguos si no hay notificaciones
-                val messages = repository.getMessagesByDateRange(chatId, startOfDay, endOfDay)
-                
-                // Aplicar filtro de texto a mensajes
-                val filteredMessages = if (!filterText.isNullOrBlank()) {
-                    val normalizedFilter = filterText.lowercase()
-                    messages.filter { msg ->
-                        (msg.messageText?.lowercase()?.contains(normalizedFilter) == true) ||
-                        (msg.senderName?.lowercase()?.contains(normalizedFilter) == true)
-                    }
-                } else {
-                    messages
-                }
-                
-                if (filteredMessages.isEmpty()) return@withContext "No hay mensajes que coincidan con los filtros aplicados."
-                val systemPrompt = buildSystemPrompt(detailLevel, extraPrompt)
-                val userContent = buildUserContent(messages)
-                try {
-                    val key = defaultApiKey
-                    val model = defaultModel
-                    val resp = callChatCompletionApi(key, model, systemPrompt, userContent, summaryLength)
-                    if (!resp.isNullOrBlank()) {
-                        var finalResp = resp.trim()
-                        val actions = extractActionItems(filteredMessages)
-                        val urgent = detectUrgency(filteredMessages)
-                        if (urgent && !finalResp.startsWith("URGENTE!!", ignoreCase = true)) {
-                            finalResp = "URGENTE!!\n" + finalResp
-                        }
-                        if (actions.isNotEmpty() && !finalResp.contains("Acciones:", ignoreCase = true)) {
-                            val actionsText = actions.joinToString("\n") { "- $it" }
-                            finalResp = "$finalResp\n\nAcciones:\n$actionsText"
-                        }
-                        return@withContext finalResp
-                    }
-                } catch (e: Exception) {
-                    // fallo
-                }
-                return@withContext "ERROR: No se pudo generar resumen con la clave/modelo proporcionado."
-            } else {
-                val systemPrompt = buildSystemPrompt(detailLevel, extraPrompt)
-                val userContent = buildUserContentFromNotifications(filteredNotifications)
-                try {
-                    val key = defaultApiKey
-                    val model = defaultModel
-                    val resp = callChatCompletionApi(key, model, systemPrompt, userContent, summaryLength)
-                    if (!resp.isNullOrBlank()) {
-                        var finalResp = resp.trim()
-                        val actions = extractActionItemsFromNotifications(filteredNotifications)
-                        val urgent = detectUrgencyFromNotifications(filteredNotifications)
-                        if (urgent && !finalResp.startsWith("URGENTE!!", ignoreCase = true)) {
-                            finalResp = "URGENTE!!\n" + finalResp
-                        }
-                        if (actions.isNotEmpty() && !finalResp.contains("Acciones:", ignoreCase = true)) {
-                            val actionsText = actions.joinToString("\n") { "- $it" }
-                            finalResp = "$finalResp\n\nAcciones:\n$actionsText"
-                        }
-                        return@withContext finalResp
-                    }
-                } catch (e: Exception) {
-                    // fallo
-                }
-                return@withContext "ERROR: No se pudo generar resumen con la clave/modelo proporcionado."
+                return@withContext "No hay notificaciones que coincidan con los filtros aplicados."
             }
+            
+            val systemPrompt = buildSystemPrompt(detailLevel, extraPrompt)
+            val userContent = buildUserContentFromNotifications(filteredNotifications)
+            
+            try {
+                val key = defaultApiKey
+                val model = defaultModel
+                val resp = callChatCompletionApi(key, model, systemPrompt, userContent, summaryLength)
+                if (!resp.isNullOrBlank()) {
+                    var finalResp = resp.trim()
+                    val actions = extractActionItemsFromNotifications(filteredNotifications)
+                    val urgent = detectUrgencyFromNotifications(filteredNotifications)
+                    if (urgent && !finalResp.startsWith("URGENTE!!", ignoreCase = true)) {
+                        finalResp = "URGENTE!!\n" + finalResp
+                    }
+                    if (actions.isNotEmpty() && !finalResp.contains("Acciones:", ignoreCase = true)) {
+                        val actionsText = actions.joinToString("\n") { "- $it" }
+                        finalResp = "$finalResp\n\nAcciones:\n$actionsText"
+                    }
+                    return@withContext finalResp
+                }
+            } catch (e: Exception) {
+                // Error al llamar API
+            }
+            return@withContext "ERROR: No se pudo generar resumen con la clave/modelo proporcionado."
         } catch (e: Exception) {
             return@withContext "ERROR interno: ${e.message}"
         }
@@ -153,31 +113,32 @@ class SummaryGenerator(
             } else {
                 todayRange()
             }
-            val allMessages = mutableListOf<com.example.whatsappsummary.data.entity.Message>()
+            val allNotifications = mutableListOf<com.example.whatsappsummary.data.entity.Notification>()
             for (cid in chatIds) {
                 try {
-                    val msgs = repository.getMessagesByDateRange(cid, startOfDay, endOfDay)
-                    allMessages.addAll(msgs)
+                    val notifs = repository.getNotificationsByDateRange(cid, startOfDay, endOfDay)
+                    allNotifications.addAll(notifs)
                 } catch (e: Exception) {
                     // ignorar chat si falla
                 }
             }
             
             // Aplicar filtro de texto si existe
-            val filteredMessages = if (!filterText.isNullOrBlank()) {
+            val filteredNotifications = if (!filterText.isNullOrBlank()) {
                 val normalizedFilter = filterText.lowercase()
-                allMessages.filter { msg ->
-                    (msg.messageText?.lowercase()?.contains(normalizedFilter) == true) ||
-                    (msg.senderName?.lowercase()?.contains(normalizedFilter) == true)
+                allNotifications.filter { notif ->
+                    (notif.text.lowercase().contains(normalizedFilter)) ||
+                    (notif.title?.lowercase()?.contains(normalizedFilter) == true) ||
+                    (notif.sender?.lowercase()?.contains(normalizedFilter) == true)
                 }
             } else {
-                allMessages
+                allNotifications
             }
             
-            if (filteredMessages.isEmpty()) return@withContext "No hay mensajes que coincidan con los filtros aplicados."
+            if (filteredNotifications.isEmpty()) return@withContext "No hay notificaciones que coincidan con los filtros aplicados."
 
             val systemPrompt = buildSystemPrompt(detailLevel, extraPrompt)
-            val userContent = buildUserContent(filteredMessages.sortedBy { it.timestamp })
+            val userContent = buildUserContentFromNotifications(filteredNotifications.sortedBy { it.timestamp })
 
             val key = defaultApiKey
             val model = defaultModel
@@ -186,8 +147,8 @@ class SummaryGenerator(
                 if (!resp.isNullOrBlank()) {
                     var finalResp = resp.trim()
 
-                    val actions = extractActionItems(filteredMessages)
-                    val urgent = detectUrgency(filteredMessages)
+                    val actions = extractActionItemsFromNotifications(filteredNotifications)
+                    val urgent = detectUrgencyFromNotifications(filteredNotifications)
 
                     if (urgent && !finalResp.startsWith("URGENTE!!", ignoreCase = true)) {
                         finalResp = "URGENTE!!\n" + finalResp
@@ -220,45 +181,18 @@ class SummaryGenerator(
         return Pair(start, end)
     }
 
-    private fun buildUserContent(messages: List<com.example.whatsappsummary.data.entity.Message>): String {
-        val df = SimpleDateFormat("HH:mm", Locale.getDefault())
-        val sb = StringBuilder()
-        sb.append("Mensajes del día:\n")
-        for (m in messages) {
-            val textRaw = m.messageText?.trim()
-            if (textRaw.isNullOrEmpty() || textRaw.equals("(sin contenido)", ignoreCase = true)) continue
-            val time = df.format(Date(m.timestamp))
-            val sender = m.senderName ?: "(desconocido)"
-            val chatId = m.chatId
-            sb.append("[").append(time).append("] Chat: ").append(chatId).append(", Remitente: ").append(sender).append(": ").append(textRaw).append("\n")
-        }
-        return sb.toString()
-    }
-
     private fun buildUserContentFromNotifications(notifs: List<com.example.whatsappsummary.data.entity.Notification>): String {
         val df = SimpleDateFormat("HH:mm", Locale.getDefault())
         val sb = StringBuilder()
         sb.append("Notificaciones del día:\n")
         for (n in notifs) {
             val time = df.format(Date(n.timestamp))
-            val appName = n.appName ?: "Desconocida"
-            val packageName = n.packageName
+            val sender = n.sender ?: "Desconocido"
             val title = n.title ?: "Sin título"
             val text = n.text.trim()
-            sb.append("[").append(time).append("] Aplicación: ").append(appName).append(" (").append(packageName).append("), Título: ").append(title).append(", Contenido: ").append(text).append("\n")
+            sb.append("[").append(time).append("] Remitente: ").append(sender).append(", Título: ").append(title).append(", Contenido: ").append(text).append("\n")
         }
         return sb.toString()
-    }
-
-    private fun detectUrgency(messages: List<com.example.whatsappsummary.data.entity.Message>): Boolean {
-        val urgentKeywords = listOf("urgente", "asap", "lo antes posible", "necesito", "necesitamos", "con prioridad", "urgencia", "prioridad")
-        for (m in messages) {
-            val txtRaw = m.messageText?.trim()
-            if (txtRaw.isNullOrEmpty() || txtRaw.equals("(sin contenido)", ignoreCase = true)) continue
-            val txt = txtRaw.toLowerCase(Locale.getDefault())
-            for (k in urgentKeywords) if (txt.contains(k)) return true
-        }
-        return false
     }
 
     private fun detectUrgencyFromNotifications(notifs: List<com.example.whatsappsummary.data.entity.Notification>): Boolean {
@@ -272,25 +206,6 @@ class SummaryGenerator(
         return false
     }
 
-    private fun extractActionItems(messages: List<com.example.whatsappsummary.data.entity.Message>): List<String> {
-        val actionKeywords = listOf("por favor", "favor de", "necesito", "necesitamos", "enviar", "revisar", "asignar", "hacer", "entregar", "reservar", "confirmar", "llamar", "contactar", "agendar", "programar", "pedir", "pedido", "tarea", "pendiente")
-        val actions = mutableListOf<String>()
-        for (m in messages) {
-            val txt = m.messageText?.trim()
-            if (txt.isNullOrEmpty() || txt.equals("(sin contenido)", ignoreCase = true)) continue
-            val low = txt.toLowerCase(Locale.getDefault())
-            for (k in actionKeywords) {
-                if (low.contains(k)) {
-                    val sentence = txt.split(Regex("[\\.\\!\\?]")).firstOrNull()?.trim() ?: txt
-                    val sender = m.senderName ?: "(desconocido)"
-                    actions.add("${sender}: ${sentence}")
-                    break
-                }
-            }
-        }
-        return actions.distinct()
-    }
-
     private fun extractActionItemsFromNotifications(notifs: List<com.example.whatsappsummary.data.entity.Notification>): List<String> {
         val actionKeywords = listOf("por favor", "favor de", "necesito", "necesitamos", "enviar", "revisar", "asignar", "hacer", "entregar", "reservar", "confirmar", "llamar", "contactar", "agendar", "programar", "pedir", "pedido", "tarea", "pendiente")
         val actions = mutableListOf<String>()
@@ -301,7 +216,7 @@ class SummaryGenerator(
             for (k in actionKeywords) {
                 if (low.contains(k)) {
                     val sentence = txt.split(Regex("[\\.\\!\\?]")).firstOrNull()?.trim() ?: txt
-                    val sender = n.title ?: n.appName ?: n.packageName
+                    val sender = n.sender ?: n.title ?: "Desconocido"
                     actions.add("${sender}: ${sentence}")
                     break
                 }

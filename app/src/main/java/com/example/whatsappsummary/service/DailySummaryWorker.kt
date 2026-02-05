@@ -24,10 +24,10 @@ class DailySummaryWorker(
         try {
             val database = AppDatabase.getDatabase(context)
             val repo = NotificationRepository(
+                database.appDao(),
                 database.chatDao(),
-                database.messageDao(),
-                database.dailySummaryDao(),
-                database.notificationDao()
+                database.notificationDao(),
+                database.dailySummaryDao()
             )
             val generator = SummaryGenerator(context, repo)
 
@@ -58,13 +58,13 @@ class DailySummaryWorker(
                         )
 
                         if (!summary.startsWith("ERROR") && !summary.startsWith("No hay")) {
-                            // Contar mensajes del día
-                            val messageCount = database.messageDao().getMessagesByDateRange(chat.chatId, startOfDay, endOfDay).size
+                            // Contar notificaciones del día
+                            val notificationCount = database.notificationDao().getNotificationsByChatIdAndRange(chat.chatId, startOfDay, endOfDay).size
 
                             val newSummary = com.example.whatsappsummary.data.entity.DailySummary(
                                 chatId = chat.chatId,
                                 date = todayDate,
-                                messageCount = messageCount,
+                                messageCount = notificationCount,
                                 summary = summary,
                                 timestamp = System.currentTimeMillis(),
                                 type = "automatic"

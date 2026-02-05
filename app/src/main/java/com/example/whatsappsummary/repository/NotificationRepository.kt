@@ -1,31 +1,40 @@
 package com.example.whatsappsummary.repository
 
 import androidx.lifecycle.LiveData
+import com.example.whatsappsummary.data.dao.AppDao
 import com.example.whatsappsummary.data.dao.ChatDao
 import com.example.whatsappsummary.data.dao.DailySummaryDao
-import com.example.whatsappsummary.data.dao.MessageDao
 import com.example.whatsappsummary.data.dao.NotificationDao
 import com.example.whatsappsummary.data.entity.Chat
 import com.example.whatsappsummary.data.entity.DailySummary
-import com.example.whatsappsummary.data.entity.Message
+import com.example.whatsappsummary.data.entity.Notification
 
 /**
  * Repository centralizado para manejar todas las notificaciones del dispositivo.
- * Gestiona chats/fuentes, mensajes, notificaciones y resúmenes diarios.
+ * Gestiona apps, chats, notificaciones/mensajes y resúmenes diarios.
  */
 class NotificationRepository(
+    private val appDao: AppDao,
     private val chatDao: ChatDao,
-    private val messageDao: MessageDao,
-    private val dailySummaryDao: DailySummaryDao,
-    private val notificationDao: NotificationDao
+    private val notificationDao: NotificationDao,
+    private val dailySummaryDao: DailySummaryDao
 ) {
-    fun getAllPackages(): List<String> = chatDao.getAllPackages()
-
-    fun getChatsByPackage(packageName: String): List<Chat> = chatDao.getChatsByPackage(packageName)
+    // App operations
+    suspend fun getAppByPackageName(packageName: String) = appDao.getAppByPackageName(packageName)
+    
+    suspend fun getAllApps() = appDao.getAllApps()
+    
     // Chat operations
     val allChats: LiveData<List<Chat>> = chatDao.getAllChats()
     
+    suspend fun getAllChatsList(): List<Chat> = chatDao.getAllChatsList()
+    
     suspend fun getChatById(chatId: String): Chat? = chatDao.getChatById(chatId)
+    
+    suspend fun getChatsByPackage(packageName: String): List<Chat> {
+        val app = appDao.getAppByPackageName(packageName) ?: return emptyList()
+        return chatDao.getChatsByAppId(app.id)
+    }
     
     suspend fun insertChat(chat: Chat) = chatDao.insertChat(chat)
     
@@ -33,38 +42,31 @@ class NotificationRepository(
     
     suspend fun deleteChatById(chatId: String) {
         chatDao.deleteChatById(chatId)
-        messageDao.deleteMessagesByChatId(chatId)
+        notificationDao.deleteNotificationsByChatId(chatId)
         dailySummaryDao.deleteSummariesByChatId(chatId)
     }
     
     suspend fun resetUnreadCount(chatId: String) = chatDao.resetUnreadCount(chatId)
     
-    // Message operations
-    fun getMessagesByChatId(chatId: String): LiveData<List<Message>> = 
-        messageDao.getMessagesByChatId(chatId)
+    // Notification/Message operations (unificadas)
+    suspend fun getNotificationsByChatId(chatId: String): List<Notification> = 
+        notificationDao.getNotificationsByChatId(chatId)
     
-    suspend fun getMessagesByDateRange(chatId: String, startTime: Long, endTime: Long): List<Message> =
-        messageDao.getMessagesByDateRange(chatId, startTime, endTime)
+    suspend fun getNotificationsByDateRange(chatId: String, startTime: Long, endTime: Long): List<Notification> =
+        notificationDao.getNotificationsByChatIdAndRange(chatId, startTime, endTime)
     
-    suspend fun insertMessage(message: Message) {
-        val textTrimmed = message.messageText.trim()
+    suspend fun insertNotification(notification: Notification) {
+        val textTrimmed = notification.text.trim()
         if (textTrimmed.isEmpty() || textTrimmed.equals("(sin contenido)", ignoreCase = true)) return
-        val toInsert = if (textTrimmed != message.messageText) message.copy(messageText = textTrimmed) else message
-        // Si los últimos 3 mensajes del chat son idénticos al mensaje a insertar, omitir
-        try {
-            val lastThree = messageDao.getLastMessages(toInsert.chatId, 3)
-            if (lastThree.size >= 3) {
-                val allEqual = lastThree.all { it.messageText.trim().equals(textTrimmed, ignoreCase = true) }
-                if (allEqual) return
-            }
-        } catch (e: Exception) {
-            // Si falla la consulta, no bloqueamos la inserción; continuar normalmente
+        
+        val toInsert = if (textTrimmed != notification.text) {
+            notification.copy(text = textTrimmed)
+        } else {
+            notification
         }
 
-        messageDao.insertMessage(toInsert)
+        notificationDao.insertNotification(toInsert)
     }
-    
-    suspend fun deleteMessage(message: Message) = messageDao.deleteMessage(message)
     
     // Daily summary operations
     fun getSummariesByChatId(chatId: String): LiveData<List<DailySummary>> =
@@ -79,9 +81,6 @@ class NotificationRepository(
     suspend fun insertSummary(summary: DailySummary) = dailySummaryDao.insertSummary(summary)
     
     suspend fun deleteSummary(summary: DailySummary) = dailySummaryDao.deleteSummary(summary)
-
-    // Notification operations
-    suspend fun insertNotification(notification: com.example.whatsappsummary.data.entity.Notification) = notificationDao.insertNotification(notification)
 
     suspend fun getNotificationsByChatIdAndRange(chatId: String, start: Long, end: Long) = notificationDao.getNotificationsByChatIdAndRange(chatId, start, end)
 

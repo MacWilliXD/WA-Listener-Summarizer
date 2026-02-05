@@ -26,11 +26,8 @@ class ChatListAdapter(
 
     override fun onBindViewHolder(holder: ChatViewHolder, position: Int) {
         val chat = getItem(position)
-        val showHeader = if (position == 0) true else {
-            val prev = getItem(position - 1)
-            !isSameDay(prev.lastMessageTime, chat.lastMessageTime)
-        }
-        holder.bind(chat, showHeader)
+        // No mostramos headers por ahora ya que lastMessageTime se calcula en query
+        holder.bind(chat, false)
     }
 
     inner class ChatViewHolder(
@@ -39,32 +36,14 @@ class ChatListAdapter(
 
         fun bind(chat: Chat, showHeader: Boolean) {
             val header = binding.root.findViewById<android.widget.TextView>(com.example.whatsappsummary.R.id.headerDate)
-            if (showHeader) {
-                val cal = Calendar.getInstance()
-                val today = Calendar.getInstance()
-                today.timeInMillis = System.currentTimeMillis()
-                val yesterday = Calendar.getInstance()
-                yesterday.timeInMillis = System.currentTimeMillis() - 24*60*60*1000
-
-                val msgCal = Calendar.getInstance().apply { timeInMillis = chat.lastMessageTime }
-                val dateStr = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault()).format(Date(chat.lastMessageTime))
-                val headerText = when {
-                    msgCal.get(Calendar.YEAR) == today.get(Calendar.YEAR) && msgCal.get(Calendar.DAY_OF_YEAR) == today.get(Calendar.DAY_OF_YEAR) -> "Hoy - $dateStr"
-                    msgCal.get(Calendar.YEAR) == yesterday.get(Calendar.YEAR) && msgCal.get(Calendar.DAY_OF_YEAR) == yesterday.get(Calendar.DAY_OF_YEAR) -> "Ayer - $dateStr"
-                    else -> dateStr
-                }
-                header.text = headerText
-                header.visibility = android.view.View.VISIBLE
-            } else {
-                header.visibility = android.view.View.GONE
-            }
+            header.visibility = android.view.View.GONE
             
             binding.textViewChatName.text = chat.chatName
-            binding.textViewLastMessage.text = chat.lastMessage
+            binding.textViewLastMessage.text = "Chat" // Placeholder ya que lastMessage no existe
             
-            // Formatear tiempo
+            // Formatear tiempo - por ahora mostramos hora actual
             val dateFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
-            val time = dateFormat.format(Date(chat.lastMessageTime))
+            val time = dateFormat.format(Date(System.currentTimeMillis()))
             binding.textViewTime.text = time
             
             // Mostrar contador de no leídos

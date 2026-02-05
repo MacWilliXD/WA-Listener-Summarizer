@@ -5,12 +5,12 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import com.example.whatsappsummary.data.entity.Message
+import com.example.whatsappsummary.data.entity.Notification
 import com.example.whatsappsummary.databinding.ItemMessageBinding
 import java.text.SimpleDateFormat
 import java.util.*
 
-class MessageAdapter : ListAdapter<Message, MessageAdapter.MessageViewHolder>(MessageDiffCallback()) {
+class MessageAdapter : ListAdapter<Notification, MessageAdapter.MessageViewHolder>(MessageDiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): MessageViewHolder {
         val binding = ItemMessageBinding.inflate(
@@ -34,7 +34,7 @@ class MessageAdapter : ListAdapter<Message, MessageAdapter.MessageViewHolder>(Me
         private val binding: ItemMessageBinding
     ) : RecyclerView.ViewHolder(binding.root) {
 
-        fun bind(message: Message, showHeader: Boolean) {
+        fun bind(message: Notification, showHeader: Boolean) {
             val header = binding.root.findViewById<android.widget.TextView>(com.example.whatsappsummary.R.id.headerDate)
             if (showHeader) {
                 val cal = Calendar.getInstance()
@@ -55,8 +55,8 @@ class MessageAdapter : ListAdapter<Message, MessageAdapter.MessageViewHolder>(Me
             } else {
                 header.visibility = android.view.View.GONE
             }
-            binding.textViewSender.text = message.senderName
-            binding.textViewMessage.text = message.messageText
+            binding.textViewSender.text = message.sender ?: ""
+            binding.textViewMessage.text = message.text
             
             // Formatear timestamp (mostrar hora)
             val timeFmt = SimpleDateFormat("HH:mm", Locale.getDefault())
@@ -71,12 +71,12 @@ class MessageAdapter : ListAdapter<Message, MessageAdapter.MessageViewHolder>(Me
                 && cal1.get(Calendar.DAY_OF_YEAR) == cal2.get(Calendar.DAY_OF_YEAR)
     }
 
-    class MessageDiffCallback : DiffUtil.ItemCallback<Message>() {
-        override fun areItemsTheSame(oldItem: Message, newItem: Message): Boolean {
+    class MessageDiffCallback : DiffUtil.ItemCallback<Notification>() {
+        override fun areItemsTheSame(oldItem: Notification, newItem: Notification): Boolean {
             return oldItem.id == newItem.id
         }
 
-        override fun areContentsTheSame(oldItem: Message, newItem: Message): Boolean {
+        override fun areContentsTheSame(oldItem: Notification, newItem: Notification): Boolean {
             return oldItem == newItem
         }
     }

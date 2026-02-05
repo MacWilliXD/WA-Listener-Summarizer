@@ -29,6 +29,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var viewModel: ChatListViewModel
     private lateinit var adapter: ChatListAdapter
     private var fullChats: List<Chat> = emptyList()
+    private var chatPackageMap: Map<String, String> = emptyMap()
     private var filterStartTs: Long? = null
     private var filterEndTs: Long? = null
     private var filterText: String? = null
@@ -94,9 +95,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupObservers() {
+        // Cargar mapa de chat a package
+        viewModel.getChatPackageMap { map ->
+            chatPackageMap = map
+            applyCurrentFilters()
+        }
+
         viewModel.allChats.observe(this) { chats ->
             fullChats = chats
-            applyCurrentFilters()
+            // Recargar mapa cuando cambien los chats
+            viewModel.getChatPackageMap { map ->
+                chatPackageMap = map
+                applyCurrentFilters()
+            }
 
             // Mostrar mensaje si no hay chats
             if (chats.isEmpty()) {
@@ -131,14 +142,22 @@ class MainActivity : AppCompatActivity() {
         val e = filterEndTs ?: defaultEnd
 
         val filtered = fullChats.filter { chat ->
-            val inRange = chat.lastMessageTime in s..e
-            val matches = nq?.let { normalize(chat.chatName ?: "").contains(it) } ?: true
-            val pkgMatch = filterPackage?.let { chat.packageName == it } ?: true
-            // Debug: mostrar información de filtrado
-            if (filterPackage != null) {
-                android.util.Log.d("FilterDebug", "Chat: ${chat.chatName}, Package: ${chat.packageName}, Filter: $filterPackage, Match: $pkgMatch")
+            // Filtro por nombre de chat
+            val matchesName = nq?.let { normalize(chat.chatName ?: "").contains(it) } ?: true
+            
+            // Filtro por paquete
+            val matchesPackage = if (filterPackage.isNullOrBlank()) {
+                true
+            } else {
+                val chatPkg = chatPackageMap[chat.chatId] ?: ""
+                chatPkg == filterPackage
             }
-            inRange && matches && pkgMatch
+            
+            // Filtro temporal: verificar si hay notificaciones del chat en el rango
+            // (por ahora dejamos true, ya que necesitaríamos consultar la DB)
+            val matchesTime = true
+            
+            matchesName && matchesPackage && matchesTime
         }
         android.util.Log.d("FilterDebug", "Chats filtrados: ${filtered.size} de ${fullChats.size}")
         adapter.submitList(filtered)
@@ -206,7 +225,7 @@ class MainActivity : AppCompatActivity() {
 
                 lifecycleScope.launch {
                     val db = com.example.whatsappsummary.data.AppDatabase.getDatabase(applicationContext)
-                    val repo = com.example.whatsappsummary.repository.NotificationRepository(db.chatDao(), db.messageDao(), db.dailySummaryDao(), db.notificationDao())
+                    val repo = com.example.whatsappsummary.repository.NotificationRepository(db.appDao(), db.chatDao(), db.notificationDao(), db.dailySummaryDao())
                     val generator = com.example.whatsappsummary.util.SummaryGenerator(application, repo)
 
                     try {
@@ -352,19 +371,8 @@ class MainActivity : AppCompatActivity() {
 
         val entries = mutableListOf<AppEntry>()
         entries.add(AppEntry("", "Todas"))
-        fullChats.map { it.packageName }
-            .filter { it.isNotBlank() }
-            .distinct()
-            .forEach { pkg ->
-                val label = try {
-                    val ai = pm.getApplicationInfo(pkg, 0)
-                    pm.getApplicationLabel(ai).toString() + " (" + pkg + ")"
-                } catch (e: Exception) {
-                    pkg
-                }
-                entries.add(AppEntry(pkg, label))
-            }
-
+        
+        // Crear el adapter primero
         val spinnerAdapter = object : android.widget.ArrayAdapter<AppEntry>(this, com.example.whatsappsummary.R.layout.spinner_item_app, entries) {
             override fun getView(position: Int, convertView: android.view.View?, parent: android.view.ViewGroup): android.view.View {
                 val view = convertView ?: layoutInflater.inflate(com.example.whatsappsummary.R.layout.spinner_item_app, parent, false)
@@ -392,12 +400,26 @@ class MainActivity : AppCompatActivity() {
         }
 
         spinnerChatType.adapter = spinnerAdapter
-
-        // Seleccionar el package filtrado actualmente (solo si no viene desde dashboard)
-        if (filterPackage != null && !filterFromDashboard) {
-            val selectedIndex = entries.indexOfFirst { it.pkg == filterPackage }
-            if (selectedIndex >= 0) {
-                spinnerChatType.setSelection(selectedIndex)
+        
+        // Cargar lista de apps desde el ViewModel
+        viewModel.fetchAllPackages { packages ->
+            packages.forEach { pkg ->
+                try {
+                    val ai = pm.getApplicationInfo(pkg, 0)
+                    val label = pm.getApplicationLabel(ai).toString()
+                    entries.add(AppEntry(pkg, label))
+                } catch (e: Exception) {
+                    entries.add(AppEntry(pkg, pkg))
+                }
+            }
+            spinnerAdapter.notifyDataSetChanged()
+            
+            // Seleccionar el package filtrado actualmente (solo si no viene desde dashboard)
+            if (filterPackage != null && !filterFromDashboard) {
+                val selectedIndex = entries.indexOfFirst { it.pkg == filterPackage }
+                if (selectedIndex >= 0) {
+                    spinnerChatType.setSelection(selectedIndex)
+                }
             }
         }
 
