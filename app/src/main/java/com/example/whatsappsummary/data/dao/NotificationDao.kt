@@ -1,5 +1,6 @@
 package com.example.whatsappsummary.data.dao
 
+import androidx.lifecycle.LiveData
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
@@ -32,6 +33,13 @@ interface NotificationDao {
 
     @Query("SELECT COUNT(*) FROM notifications WHERE chat_id = :chatId AND text = :text AND timestamp BETWEEN :since AND :now")
     suspend fun countExactNotification(chatId: String, text: String, since: Long, now: Long): Int
+
+    @Query("""
+        SELECT COUNT(*) FROM notifications 
+        WHERE chat_id = :chatId AND text = :text 
+        AND datetime(timestamp/1000, 'unixepoch') >= datetime(date('now', '-1 day'))
+    """)
+    suspend fun countDuplicateByMinute(chatId: String, text: String): Int
 
     // Queries de conteo y estadísticas
     @Query("SELECT COUNT(*) FROM notifications")
@@ -67,4 +75,10 @@ interface NotificationDao {
     
     @Query("DELETE FROM notifications WHERE chat_id = :chatId")
     suspend fun deleteNotificationsByChatId(chatId: String)
+    
+    @Query("SELECT COALESCE(MAX(timestamp), 0) FROM notifications WHERE chat_id = :chatId")
+    suspend fun getLastMessageTimeForChat(chatId: String): Long
+    
+    @Query("SELECT * FROM notifications ORDER BY timestamp DESC")
+    fun getAllNotificationsLive(): LiveData<List<Notification>>
 }

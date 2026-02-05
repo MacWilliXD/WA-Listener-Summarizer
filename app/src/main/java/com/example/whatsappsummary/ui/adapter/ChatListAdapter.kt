@@ -5,15 +5,15 @@ import android.view.ViewGroup
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
 import androidx.recyclerview.widget.RecyclerView
-import com.example.whatsappsummary.data.entity.Chat
+import com.example.whatsappsummary.data.entity.ChatWithLastMessage
 import com.example.whatsappsummary.databinding.ItemChatBinding
 import java.text.SimpleDateFormat
 import java.util.*
 
 class ChatListAdapter(
-    private val onChatClick: (Chat) -> Unit,
-    private val onChatLongClick: (Chat) -> Unit
-) : ListAdapter<Chat, ChatListAdapter.ChatViewHolder>(ChatDiffCallback()) {
+    private val onChatClick: (ChatWithLastMessage) -> Unit,
+    private val onChatLongClick: (ChatWithLastMessage) -> Unit
+) : ListAdapter<ChatWithLastMessage, ChatListAdapter.ChatViewHolder>(ChatDiffCallback()) {
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ChatViewHolder {
         val binding = ItemChatBinding.inflate(
@@ -34,16 +34,16 @@ class ChatListAdapter(
         private val binding: ItemChatBinding
     ) : RecyclerView.ViewHolder(binding.root) {
 
-        fun bind(chat: Chat, showHeader: Boolean) {
+        fun bind(chat: ChatWithLastMessage, showHeader: Boolean) {
             val header = binding.root.findViewById<android.widget.TextView>(com.example.whatsappsummary.R.id.headerDate)
             header.visibility = android.view.View.GONE
             
             binding.textViewChatName.text = chat.chatName
             binding.textViewLastMessage.text = "Chat" // Placeholder ya que lastMessage no existe
             
-            // Formatear tiempo - por ahora mostramos hora actual
+            // Formatear tiempo del último mensaje
             val dateFormat = SimpleDateFormat("HH:mm", Locale.getDefault())
-            val time = dateFormat.format(Date(System.currentTimeMillis()))
+            val time = dateFormat.format(java.util.Date(chat.lastMessageTime))
             binding.textViewTime.text = time
             
             // Mostrar contador de no leídos
@@ -97,12 +97,12 @@ class ChatListAdapter(
                 && cal1.get(Calendar.DAY_OF_YEAR) == cal2.get(Calendar.DAY_OF_YEAR)
     }
 
-    class ChatDiffCallback : DiffUtil.ItemCallback<Chat>() {
-        override fun areItemsTheSame(oldItem: Chat, newItem: Chat): Boolean {
+    class ChatDiffCallback : DiffUtil.ItemCallback<ChatWithLastMessage>() {
+        override fun areItemsTheSame(oldItem: ChatWithLastMessage, newItem: ChatWithLastMessage): Boolean {
             return oldItem.chatId == newItem.chatId
         }
 
-        override fun areContentsTheSame(oldItem: Chat, newItem: Chat): Boolean {
+        override fun areContentsTheSame(oldItem: ChatWithLastMessage, newItem: ChatWithLastMessage): Boolean {
             return oldItem == newItem
         }
     }

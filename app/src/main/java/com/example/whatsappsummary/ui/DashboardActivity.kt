@@ -662,8 +662,9 @@ class DashboardActivity : AppCompatActivity() {
         }
 
         binding.buttonViewChats.setOnClickListener {
-            // Navegar a la vista de lista de chats sin filtro
+            // Navegar a la vista de lista de chats y limpiar los filtros
             val intent = Intent(this, MainActivity::class.java)
+            intent.putExtra("CLEAR_FILTERS", true)
             startActivity(intent)
         }
 

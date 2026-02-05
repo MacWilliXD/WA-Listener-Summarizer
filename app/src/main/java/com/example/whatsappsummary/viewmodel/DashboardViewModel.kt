@@ -35,7 +35,39 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val _pieChartData = MutableLiveData<List<AppNotificationStats>>()
     val pieChartData: LiveData<List<AppNotificationStats>> = _pieChartData
 
+    // Variables de filtro con valores iniciales (últimos 7 días)
+    private var selectedPackage = "all"
+    private var selectedStartLine: Long = 0L
+    private var selectedEndLine: Long = 0L
+    private var selectedGranularity = "day"
+    private var selectedStartPie: Long = 0L
+    private var selectedEndPie: Long = 0L
+    private var selectedPieApp = "all"
+
     init {
+        // Inicializar fechas por defecto (últimos 7 días)
+        val cal = Calendar.getInstance()
+        selectedEndLine = cal.timeInMillis
+        selectedEndPie = cal.timeInMillis
+        cal.add(Calendar.DAY_OF_MONTH, -7)
+        selectedStartLine = cal.timeInMillis
+        selectedStartPie = cal.timeInMillis
+        
+        loadDashboardData()
+        // Cargar gráficas iniciales con filtros por defecto
+        loadLineChartData(selectedPackage, selectedStartLine, selectedEndLine, selectedGranularity)
+        loadPieChartData(selectedStartPie, selectedEndPie, selectedPieApp)
+        
+        // Observar cambios en las notificaciones para actualizar gráficas en tiempo real
+        database.notificationDao().getAllNotificationsLive().observeForever {
+            reloadCharts()
+        }
+    }
+    
+    private fun reloadCharts() {
+        // Recargar todas las gráficas cuando cambian las notificaciones
+        loadLineChartData(selectedPackage, selectedStartLine, selectedEndLine, selectedGranularity)
+        loadPieChartData(selectedStartPie, selectedEndPie, selectedPieApp)
         loadDashboardData()
     }
 
@@ -104,6 +136,11 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun loadLineChartData(packageName: String, startTime: Long, endTime: Long, granularity: String = "hour") {
+        selectedPackage = packageName
+        selectedStartLine = startTime
+        selectedEndLine = endTime
+        selectedGranularity = granularity
+        
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
                 try {
@@ -299,6 +336,10 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     }
 
     fun loadPieChartData(startTime: Long, endTime: Long, selectedApp: String = "all") {
+        selectedStartPie = startTime
+        selectedEndPie = endTime
+        selectedPieApp = selectedApp
+        
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
                 try {
@@ -333,13 +374,18 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                                 )
                             }
                     } else {
-                        // Agrupar por chat de la aplicación seleccionada (todos los chats: grupos e individuales)
+                        // Agrupar por chatId de la aplicación seleccionada para obtener chats únicos
                         val app = allApps.find { it.packageName == selectedApp }
                         if (app != null) {
+                            val allChats = database.chatDao().getAllChatsList()
                             notifications
-                                .filter { it.appId == app.id }
-                                .groupBy { it.title ?: "Chat sin nombre" }
-                                .map { (chatName, chatNotifs) ->
+                                .filter { it.appId == app.id && it.chatId != null }
+                                .groupBy { it.chatId }
+                                .mapNotNull { (chatId, chatNotifs) ->
+                                    // Obtener el nombre del chat desde la tabla chats
+                                    val chat = allChats.find { it.chatId == chatId }
+                                    val chatName = chat?.chatName ?: chatId ?: "Chat sin nombre"
+                                    
                                     // Contar notificaciones de hoy para este chat
                                     val todayNotifications = chatNotifs.count { it.timestamp >= todayStart }
 

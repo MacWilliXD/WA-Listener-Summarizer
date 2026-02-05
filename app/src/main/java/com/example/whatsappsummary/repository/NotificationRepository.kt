@@ -6,6 +6,7 @@ import com.example.whatsappsummary.data.dao.ChatDao
 import com.example.whatsappsummary.data.dao.DailySummaryDao
 import com.example.whatsappsummary.data.dao.NotificationDao
 import com.example.whatsappsummary.data.entity.Chat
+import com.example.whatsappsummary.data.entity.ChatWithLastMessage
 import com.example.whatsappsummary.data.entity.DailySummary
 import com.example.whatsappsummary.data.entity.Notification
 
@@ -28,6 +29,14 @@ class NotificationRepository(
     val allChats: LiveData<List<Chat>> = chatDao.getAllChats()
     
     suspend fun getAllChatsList(): List<Chat> = chatDao.getAllChatsList()
+    
+    suspend fun getAllChatsWithLastMessage(): List<ChatWithLastMessage> {
+        val allChats = chatDao.getAllChatsList()
+        return allChats.map { chat ->
+            val lastMessageTime = notificationDao.getLastMessageTimeForChat(chat.chatId)
+            ChatWithLastMessage(chat, lastMessageTime)
+        }
+    }
     
     suspend fun getChatById(chatId: String): Chat? = chatDao.getChatById(chatId)
     

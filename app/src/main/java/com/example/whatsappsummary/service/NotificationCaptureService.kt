@@ -314,6 +314,30 @@ class NotificationCaptureService : NotificationListenerService() {
         }
     }
 
+    private fun isSummaryNotification(text: String, title: String = ""): Boolean {
+        // Detectar notificaciones de resumen de WhatsApp en CUALQUIER campo
+        // Revisar tanto el título como el texto
+        val lowerText = text.lowercase(Locale.getDefault()).trim()
+        val lowerTitle = title.lowercase(Locale.getDefault()).trim()
+        val fullContent = "$lowerTitle $lowerText"
+        
+        // Patrones en español
+        if (fullContent.matches(Regex(".*\\d+\\s+mensajes?\\s+nuevos?.*")) ||
+            fullContent.matches(Regex(".*\\d+\\s+mensajes?\\s+de\\s+\\d+\\s+chats?.*")) ||
+            fullContent.matches(Regex(".*\\d+\\s+msg\\s+de\\s+\\d+\\s+chats?.*"))) {
+            return true
+        }
+        
+        // Patrones en inglés
+        if (fullContent.matches(Regex(".*\\d+\\s+new\\s+messages?.*")) ||
+            fullContent.matches(Regex(".*\\d+\\s+messages?\\s+from\\s+\\d+\\s+chats?.*")) ||
+            fullContent.matches(Regex(".*\\d+\\s+msgs?\\s+from\\s+\\d+\\s+chats?.*"))) {
+            return true
+        }
+        
+        return false
+    }
+
     private fun isRecentDuplicate(signature: String, windowMs: Long = 15_000L): Boolean {
         val now = System.currentTimeMillis()
         synchronized(recentLock) {
@@ -331,6 +355,44 @@ class NotificationCaptureService : NotificationListenerService() {
             recentNotifications[signature] = now
             return false
         }
+    }
+
+    /**
+     * Verifica si existe una notificación duplicada con la misma hora, minuto y contenido
+     * en los últimos 2 días
+     */
+    private suspend fun isDuplicateByMinute(chatId: String, text: String): Boolean {
+        try {
+            // Obtener notificaciones del mismo chat de los últimos 2 días
+            val twoDaysAgo = System.currentTimeMillis() - (2 * 24 * 60 * 60 * 1000L)
+            val recentNotifications = database.notificationDao().getNotificationsByChatIdAndRange(
+                chatId, 
+                twoDaysAgo, 
+                System.currentTimeMillis()
+            )
+            
+            val cal = Calendar.getInstance()
+            val currentMinutes = run {
+                cal.timeInMillis = System.currentTimeMillis()
+                cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE)
+            }
+            
+            // Buscar notificación con mismo texto en la misma hora y minuto
+            for (notif in recentNotifications) {
+                if (notif.text?.equals(text, ignoreCase = true) == true) {
+                    cal.timeInMillis = notif.timestamp
+                    val notifMinutes = cal.get(Calendar.HOUR_OF_DAY) * 60 + cal.get(Calendar.MINUTE)
+                    
+                    if (currentMinutes == notifMinutes) {
+                        Log.d(TAG, "Duplicado por hora/minuto detectado: $chatId | $text")
+                        return true
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error verificando duplicado por minuto: ${e.message}")
+        }
+        return false
     }
 
     private suspend fun saveOtherNotification(packageName: String, title: String, text: String) {
@@ -361,6 +423,13 @@ class NotificationCaptureService : NotificationListenerService() {
         
         val actualMessage = text.trim()
         if (actualMessage.isEmpty()) return
+        
+        // Omitir notificaciones de resumen como "x mensajes nuevos" o "x mensajes de y chats"
+        // Verificar en ambos campos: título y texto
+        if (isSummaryNotification(actualMessage, title)) {
+            Log.d(TAG, "Notificación de resumen omitida: $title - $actualMessage")
+            return
+        }
 
         // Evitar procesar notificaciones idénticas muy recientes
         try {
@@ -376,12 +445,8 @@ class NotificationCaptureService : NotificationListenerService() {
         // 3. Obtener o crear el Chat
         getOrCreateChat(finalChatId, chatName, appId, isGroup)
 
-        // 4. Verificar duplicados en los últimos 10 segundos
-        val dedupeWindowMs = 10_000L
-        val sinceTime = timestamp - dedupeWindowMs
-        val notifCount = database.notificationDao().countExactNotification(finalChatId, actualMessage, sinceTime, timestamp)
-        
-        if (notifCount == 0) {
+        // 4. Verificar duplicados por hora y minuto
+        if (!isDuplicateByMinute(finalChatId, actualMessage)) {
             // 5. Guardar la notificación
             val notification = com.example.whatsappsummary.data.entity.Notification(
                 appId = appId,
@@ -446,6 +511,13 @@ class NotificationCaptureService : NotificationListenerService() {
             messageText.trim()
         }
         if (actualMessage.isEmpty()) return
+        
+        // Omitir notificaciones de resumen como "x mensajes nuevos" o "x mensajes de y chats"
+        // Verificar en todos los campos disponibles
+        if (isSummaryNotification(actualMessage, title)) {
+            Log.d(TAG, "Notificación de resumen omitida: $title - $actualMessage")
+            return
+        }
 
         // 7. Evitar procesar notificaciones idénticas muy recientes
         try {
@@ -461,12 +533,8 @@ class NotificationCaptureService : NotificationListenerService() {
         // 8. Obtener o crear el Chat
         getOrCreateChat(chatId, chatName, appId, isGroup)
 
-        // 9. Verificar duplicados en los últimos 10 segundos
-        val dedupeWindowMs = 10_000L
-        val sinceTime = timestamp - dedupeWindowMs
-        val notifCount = database.notificationDao().countExactNotification(chatId, actualMessage, sinceTime, timestamp)
-
-        if (notifCount == 0) {
+        // 9. Verificar duplicados por hora y minuto
+        if (!isDuplicateByMinute(chatId, actualMessage)) {
             // 10. Guardar la notificación/mensaje
             val notification = com.example.whatsappsummary.data.entity.Notification(
                 appId = appId,

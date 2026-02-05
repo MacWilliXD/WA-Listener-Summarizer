@@ -20,6 +20,7 @@ import kotlinx.coroutines.withContext
 import com.example.whatsappsummary.data.entity.Chat
 import androidx.recyclerview.widget.LinearLayoutManager
 import com.example.whatsappsummary.databinding.ActivityMainBinding
+import com.example.whatsappsummary.data.entity.ChatWithLastMessage
 import com.example.whatsappsummary.ui.adapter.ChatListAdapter
 import com.example.whatsappsummary.viewmodel.ChatListViewModel
 
@@ -28,7 +29,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var viewModel: ChatListViewModel
     private lateinit var adapter: ChatListAdapter
-    private var fullChats: List<Chat> = emptyList()
+    private var fullChats: List<ChatWithLastMessage> = emptyList()
     private var chatPackageMap: Map<String, String> = emptyMap()
     private var filterStartTs: Long? = null
     private var filterEndTs: Long? = null
@@ -44,6 +45,7 @@ class MainActivity : AppCompatActivity() {
         // Verificar si viene un filtro de aplicación desde el Intent ANTES de cualquier setup
         val filterPackageFromIntent = intent.getStringExtra("FILTER_PACKAGE")
         val filterAppNameFromIntent = intent.getStringExtra("FILTER_APP_NAME")
+        val clearFilters = intent.getBooleanExtra("CLEAR_FILTERS", false)
         
         // Inicializar SharedPreferences para filtros
         filterPrefs = getSharedPreferences("filter_prefs", MODE_PRIVATE)
@@ -55,6 +57,12 @@ class MainActivity : AppCompatActivity() {
             // Mostrar mensaje indicando el filtro aplicado
             android.util.Log.d("FilterDebug", "Aplicando filtro desde dashboard: $filterPackageFromIntent")
             Toast.makeText(this, "Mostrando chats de: ${filterAppNameFromIntent ?: filterPackageFromIntent}", Toast.LENGTH_SHORT).show()
+        } else if (clearFilters) {
+            // Limpiar todos los filtros si viene desde dashboard
+            filterPackage = null
+            filterStartTs = null
+            filterEndTs = null
+            filterText = null
         }
 
         setupViewModel()
@@ -101,8 +109,8 @@ class MainActivity : AppCompatActivity() {
             applyCurrentFilters()
         }
 
-        viewModel.allChats.observe(this) { chats ->
-            fullChats = chats
+        viewModel.allChatsWithMessage.observe(this) { chatsWithMessage ->
+            fullChats = chatsWithMessage
             // Recargar mapa cuando cambien los chats
             viewModel.getChatPackageMap { map ->
                 chatPackageMap = map
@@ -110,7 +118,7 @@ class MainActivity : AppCompatActivity() {
             }
 
             // Mostrar mensaje si no hay chats
-            if (chats.isEmpty()) {
+            if (chatsWithMessage.isEmpty()) {
                 binding.textViewEmpty.visibility = android.view.View.VISIBLE
                 binding.recyclerViewChats.visibility = android.view.View.GONE
             } else {
@@ -141,21 +149,27 @@ class MainActivity : AppCompatActivity() {
         val s = filterStartTs ?: defaultStart
         val e = filterEndTs ?: defaultEnd
 
-        val filtered = fullChats.filter { chat ->
+        val filtered = fullChats.filter { chatItem ->
             // Filtro por nombre de chat
-            val matchesName = nq?.let { normalize(chat.chatName ?: "").contains(it) } ?: true
+            val matchesName = nq?.let { normalize(chatItem.chatName ?: "").contains(it) } ?: true
             
             // Filtro por paquete
             val matchesPackage = if (filterPackage.isNullOrBlank()) {
                 true
             } else {
-                val chatPkg = chatPackageMap[chat.chatId] ?: ""
+                val chatPkg = chatPackageMap[chatItem.chatId] ?: ""
                 chatPkg == filterPackage
             }
             
-            // Filtro temporal: verificar si hay notificaciones del chat en el rango
-            // (por ahora dejamos true, ya que necesitaríamos consultar la DB)
-            val matchesTime = true
+            // Filtro temporal: basado en la fecha del último mensaje del chat
+            val matchesTime = if (filterStartTs != null || filterEndTs != null) {
+                val lastMsgTime = chatItem.lastMessageTime ?: 0L
+                val isAfterStart = filterStartTs?.let { lastMsgTime >= it } ?: true
+                val isBeforeEnd = filterEndTs?.let { lastMsgTime <= it } ?: true
+                isAfterStart && isBeforeEnd
+            } else {
+                true
+            }
             
             matchesName && matchesPackage && matchesTime
         }
