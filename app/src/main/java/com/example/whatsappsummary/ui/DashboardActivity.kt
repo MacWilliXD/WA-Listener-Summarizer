@@ -45,7 +45,30 @@ class DashboardActivity : AppCompatActivity() {
     private var selectedEndPie: Long = 0L
     private var selectedTopAppsLimit: Int = 5 // límite de aplicaciones a mostrar en lista (Top 5 por defecto)
     private var selectedPieTopAppsLimit: Int = 10 // límite de aplicaciones a mostrar en pie chart
+    private var selectedPieApp: String = "all" // aplicación seleccionada para pie chart
+    private var availableApps: List<String> = emptyList() // lista de todas las aplicaciones disponibles
+    private var availableAppNames: List<String> = emptyList() // lista de nombres de aplicaciones para mostrar
+    private var appNameToPackageMap: MutableMap<String, String> = mutableMapOf() // mapa nombre -> package
+    private var packageToAppNameMap: MutableMap<String, String> = mutableMapOf() // mapa package -> nombre
     private var selectedGranularity: String = "day" // granularidad por defecto: día
+
+    // Función para formatear números grandes con sufijos
+    private fun formatLargeNumber(value: Float): String {
+        val absValue = Math.abs(value)
+        return when {
+            absValue >= 1_000_000_000_000 -> String.format("%.1fT", value / 1_000_000_000_000) // Trillones
+            absValue >= 1_000_000_000 -> String.format("%.1fB", value / 1_000_000_000) // Billones
+            absValue >= 1_000_000 -> String.format("%.1fM", value / 1_000_000) // Millones
+            absValue >= 1_000 -> String.format("%.1fK", value / 1_000) // Miles
+            else -> String.format("%.0f", value) // Valores normales sin decimales
+        }
+    }
+
+    // Función para formatear números completos con separadores de miles
+    private fun formatFullNumber(value: Float): String {
+        val intValue = value.toInt()
+        return String.format("%,d", intValue).replace(",", ".")
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -59,6 +82,9 @@ class DashboardActivity : AppCompatActivity() {
         setupSpinners()
         setupObservers()
         setupButtons()
+
+        // Inicializar título del gráfico de pastel
+        updatePieChartTitle()
 
         // Load initial chart data
         viewModel.loadPieChartData(selectedStartPie, selectedEndPie)
@@ -121,8 +147,8 @@ class DashboardActivity : AppCompatActivity() {
                 override fun onValueSelected(e: com.github.mikephil.charting.data.Entry?, h: Highlight?) {
                     if (e is PieEntry) {
                         val appName = e.label ?: "Desconocido"
-                        val value = e.value.toInt()
-                        Toast.makeText(this@DashboardActivity, "$appName: $value notificaciones", Toast.LENGTH_SHORT).show()
+                        val fullValue = formatFullNumber(e.value)
+                        Toast.makeText(this@DashboardActivity, "$appName: $fullValue notificaciones", Toast.LENGTH_SHORT).show()
                     }
                 }
                 
@@ -286,7 +312,10 @@ class DashboardActivity : AppCompatActivity() {
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
-        
+
+        // Spinner para selección de aplicación en PieChart
+        // Se inicializará cuando lleguen los datos de aplicaciones
+
         // Botón para rango de fechas del PieChart
         binding.buttonPieDateRange.setOnClickListener {
             showDateRangePicker(true)
@@ -340,19 +369,66 @@ class DashboardActivity : AppCompatActivity() {
         }
     }
 
-    private fun updateAppSpinner(apps: List<String>) {
+    private fun updateAppSpinner(appNames: List<String>) {
         val appList = mutableListOf("Todas las aplicaciones")
-        appList.addAll(apps)
+        appList.addAll(appNames)
         val appAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, appList)
         appAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         binding.spinnerApp.adapter = appAdapter
         binding.spinnerApp.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
-                selectedPackage = if (position == 0) "all" else apps[position - 1]
+                selectedPackage = if (position == 0) "all" else appNameToPackageMap[appNames[position - 1]] ?: "all"
                 viewModel.loadLineChartData(selectedPackage, selectedStartLine, selectedEndLine, selectedGranularity)
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
+    }
+
+    private fun updatePieAppSpinner(appNames: List<String>) {
+        val appList = mutableListOf("Todas las aplicaciones")
+        appList.addAll(appNames)
+        val appAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, appList)
+        appAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        binding.spinnerPieApp.adapter = appAdapter
+
+        // Encontrar la posición de la aplicación actualmente seleccionada
+        val selectedPosition = if (selectedPieApp == "all") {
+            0
+        } else {
+            val appDisplayName = packageToAppNameMap[selectedPieApp]
+            val appIndex = appNames.indexOf(appDisplayName)
+            if (appIndex >= 0) appIndex + 1 else 0
+        }
+
+        // Establecer la selección sin disparar el listener
+        binding.spinnerPieApp.setSelection(selectedPosition, false)
+
+        binding.spinnerPieApp.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                val previousApp = selectedPieApp
+                selectedPieApp = if (position == 0) "all" else appNameToPackageMap[appNames[position - 1]] ?: "all"
+
+                // Solo recargar si cambió la aplicación seleccionada
+                if (previousApp != selectedPieApp) {
+                    // Actualizar título del gráfico
+                    updatePieChartTitle()
+
+                    // Recargar datos del pie chart
+                    viewModel.loadPieChartData(selectedStartPie, selectedEndPie, selectedPieApp)
+                }
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
+    }
+
+    private fun updatePieChartTitle() {
+        val title = if (selectedPieApp == "all") {
+            "Notificaciones por Aplicación"
+        } else {
+            val appDisplayName = packageToAppNameMap[selectedPieApp] ?: selectedPieApp
+            "Chats de $appDisplayName"
+        }
+        binding.textPieChartTitle.text = title
     }
 
     private fun setupPieChart(appStats: List<com.example.whatsappsummary.viewmodel.AppNotificationStats>) {
@@ -376,7 +452,8 @@ class DashboardActivity : AppCompatActivity() {
                 override fun getFormattedValue(value: Float, entry: com.github.mikephil.charting.data.Entry?, dataSetIndex: Int, viewPortHandler: ViewPortHandler?): String {
                     val count = value.toInt()
                     val percentage = (value / totalCount * 100).toInt()
-                    return "$count ($percentage%)"
+                    val formattedValue = formatLargeNumber(value)
+                    return "$formattedValue ($percentage%)"
                 }
             }
         }
@@ -388,13 +465,13 @@ class DashboardActivity : AppCompatActivity() {
         binding.pieChart.invalidate()
     }
 
-    private fun setupLineChart(dailyData: List<Pair<String, Int>>) {
+    private fun setupLineChart(dailyData: List<Triple<String, Long, Int>>) {
         if (dailyData.isEmpty()) {
             binding.lineChart.clear()
             return
         }
 
-        val entries = dailyData.mapIndexed { index, (_, count) ->
+        val entries = dailyData.mapIndexed { index, (_, _, count) ->
             Entry(index.toFloat(), count.toFloat())
         }
 
@@ -443,7 +520,8 @@ class DashboardActivity : AppCompatActivity() {
                         "" // No mostrar porcentaje para el primer punto
                     }
                     
-                    return "$currentValue$percentageText"
+                    val formattedValue = formatLargeNumber(value)
+                    return "$formattedValue$percentageText"
                 }
             }
 
@@ -468,9 +546,32 @@ class DashboardActivity : AppCompatActivity() {
                 override fun onValueSelected(e: com.github.mikephil.charting.data.Entry?, h: Highlight?) {
                     if (e != null && e.x.toInt() < dailyData.size) {
                         val dataPoint = dailyData[e.x.toInt()]
-                        val hour = dataPoint.first
-                        val count = dataPoint.second
-                        Toast.makeText(this@DashboardActivity, "$hour: $count notificaciones", Toast.LENGTH_SHORT).show()
+                        val hour = dataPoint.first // etiqueta
+                        val count = dataPoint.third // valor
+                        val fullValue = formatFullNumber(count.toFloat())
+                        
+                        // Calcular cambio porcentual respecto al valor anterior
+                        val index = e.x.toInt()
+                        val percentageText = if (index > 0 && index < dailyData.size) {
+                            val previousValue = dailyData[index - 1].third
+                            if (previousValue > 0) {
+                                val change = count - previousValue
+                                val percentage = (change.toFloat() / previousValue.toFloat() * 100).toInt()
+                                if (percentage > 0) {
+                                    " ▲+${percentage}%"
+                                } else if (percentage < 0) {
+                                    " ▼${percentage}%"
+                                } else {
+                                    " ▬0%"
+                                }
+                            } else {
+                                " ▲+${count}%" // Si el anterior era 0, mostrar el valor actual como aumento
+                            }
+                        } else {
+                            "" // No mostrar porcentaje para el primer punto
+                        }
+                        
+                        Toast.makeText(this@DashboardActivity, "$hour: $fullValue$percentageText", Toast.LENGTH_SHORT).show()
                     }
                 }
 
@@ -486,7 +587,7 @@ class DashboardActivity : AppCompatActivity() {
 
     private fun setupObservers() {
         viewModel.totalNotifications.observe(this) { count ->
-            binding.textTotalNotifications.text = count.toString()
+            binding.textTotalNotifications.text = formatLargeNumber(count.toFloat())
         }
 
         viewModel.totalApps.observe(this) { count ->
@@ -494,7 +595,7 @@ class DashboardActivity : AppCompatActivity() {
         }
 
         viewModel.todayNotifications.observe(this) { count ->
-            binding.textTodayNotifications.text = count.toString()
+            binding.textTodayNotifications.text = formatLargeNumber(count.toFloat())
         }
 
         viewModel.notificationsByApp.observe(this) { appStats ->
@@ -502,15 +603,30 @@ class DashboardActivity : AppCompatActivity() {
             val limitedStats = if (selectedTopAppsLimit == Int.MAX_VALUE) appStats else appStats.take(selectedTopAppsLimit)
             adapter.submitList(limitedStats)
             
-            // Actualizar spinner de apps
-            val packageNames = appStats.map { it.packageName }
-            updateAppSpinner(packageNames)
+            // Crear mapas para relacionar nombres de apps con package names
+            appNameToPackageMap.clear()
+            packageToAppNameMap.clear()
+            appStats.forEach { stat ->
+                val displayName = stat.appName ?: stat.packageName
+                appNameToPackageMap[displayName] = stat.packageName
+                packageToAppNameMap[stat.packageName] = displayName
+            }
+            
+            // Guardar la lista de nombres de aplicaciones disponibles para el spinner
+            availableAppNames = appStats.map { it.appName ?: it.packageName }
+            
+            // Actualizar spinners de aplicaciones
+            updateAppSpinner(availableAppNames)
+            updatePieAppSpinner(availableAppNames)
         }
 
         viewModel.pieChartData.observe(this) { appStats ->
             // Aplicar el límite seleccionado para el PieChart
             val limitedStats = if (selectedPieTopAppsLimit == Int.MAX_VALUE) appStats else appStats.take(selectedPieTopAppsLimit)
             setupPieChart(limitedStats)
+
+            // Actualizar spinner de aplicaciones para el pie chart (usando todas las apps disponibles)
+            updatePieAppSpinner(availableAppNames)
         }
 
         viewModel.lineChartData.observe(this) { dailyData ->
@@ -522,7 +638,7 @@ class DashboardActivity : AppCompatActivity() {
         binding.buttonRefresh.setOnClickListener {
             // Recargar todos los datos del dashboard
             viewModel.loadDashboardData()
-            viewModel.loadPieChartData(selectedStartPie, selectedEndPie)
+            viewModel.loadPieChartData(selectedStartPie, selectedEndPie, selectedPieApp)
             viewModel.loadLineChartData(selectedPackage, selectedStartLine, selectedEndLine, selectedGranularity)
             Toast.makeText(this, "Dashboard actualizado", Toast.LENGTH_SHORT).show()
         }
@@ -552,7 +668,7 @@ class DashboardActivity : AppCompatActivity() {
                         // Recargar los datos del dashboard para reflejar los cambios
                         viewModel.loadDashboardData()
                         // También recargar datos del PieChart
-                        viewModel.loadPieChartData(selectedStartPie, selectedEndPie)
+                        viewModel.loadPieChartData(selectedStartPie, selectedEndPie, selectedPieApp)
 
                         // Mostrar mensaje de confirmación
                         Toast.makeText(this@DashboardActivity, "Aplicación y sus notificaciones eliminadas", Toast.LENGTH_SHORT).show()
@@ -605,7 +721,7 @@ class DashboardActivity : AppCompatActivity() {
                 if (isPie) {
                     selectedStartPie = selectedStart
                     selectedEndPie = selectedEnd
-                    viewModel.loadPieChartData(selectedStartPie, selectedEndPie)
+                    viewModel.loadPieChartData(selectedStartPie, selectedEndPie, selectedPieApp)
                 } else {
                     selectedStartLine = selectedStart
                     selectedEndLine = selectedEnd

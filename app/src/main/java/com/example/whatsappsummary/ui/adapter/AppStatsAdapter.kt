@@ -24,6 +24,18 @@ class AppStatsAdapter(
         packageManager = pm
     }
 
+    // Función para formatear números grandes con sufijos
+    private fun formatLargeNumber(value: Int): String {
+        val absValue = Math.abs(value).toFloat()
+        return when {
+            absValue >= 1_000_000_000_000 -> String.format("%.1fT", value / 1_000_000_000_000f) // Trillones
+            absValue >= 1_000_000_000 -> String.format("%.1fB", value / 1_000_000_000f) // Billones
+            absValue >= 1_000_000 -> String.format("%.1fM", value / 1_000_000f) // Millones
+            absValue >= 1_000 -> String.format("%.1fK", value / 1_000f) // Miles
+            else -> value.toString() // Valores normales sin decimales
+        }
+    }
+
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): AppStatsViewHolder {
         val binding = ItemAppStatsBinding.inflate(
             LayoutInflater.from(parent.context), parent, false
@@ -61,11 +73,11 @@ class AppStatsAdapter(
         fun bind(appStats: AppNotificationStats) {
             binding.textAppName.text = appStats.appName ?: appStats.packageName
             binding.textPackageName.text = appStats.packageName
-            binding.textNotificationCount.text = appStats.notificationCount.toString()
+            binding.textNotificationCount.text = formatLargeNumber(appStats.notificationCount)
 
             // Configurar el texto de "hoy" en lugar del texto estático "notificaciones"
             val todayText = if (appStats.todayNotificationCount > 0) {
-                "${appStats.todayNotificationCount} hoy"
+                "${formatLargeNumber(appStats.todayNotificationCount)} hoy"
             } else {
                 "0 hoy"
             }

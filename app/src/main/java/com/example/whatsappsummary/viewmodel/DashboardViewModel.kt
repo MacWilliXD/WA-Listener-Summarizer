@@ -29,8 +29,8 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     private val _todayNotifications = MutableLiveData<Int>()
     val todayNotifications: LiveData<Int> = _todayNotifications
 
-    private val _lineChartData = MutableLiveData<List<Pair<String, Int>>>()
-    val lineChartData: LiveData<List<Pair<String, Int>>> = _lineChartData
+    private val _lineChartData = MutableLiveData<List<Triple<String, Long, Int>>>()
+    val lineChartData: LiveData<List<Triple<String, Long, Int>>> = _lineChartData
 
     private val _pieChartData = MutableLiveData<List<AppNotificationStats>>()
     val pieChartData: LiveData<List<AppNotificationStats>> = _pieChartData
@@ -140,9 +140,14 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                                     }
                                     
                                     val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
-                                    "$dayLetter ${dateFormat.format(Date(cal.timeInMillis))}"
+                                    val label = "$dayLetter ${dateFormat.format(Date(cal.timeInMillis))}"
+                                    val timestamp = cal.timeInMillis
+                                    
+                                    label to timestamp
                                 }
-                                .map { (time, notifs) -> time to notifs.size }
+                                .map { (labelAndTimestamp, notifs) -> 
+                                    Triple(labelAndTimestamp.first, labelAndTimestamp.second, notifs.size)
+                                }
                         }
                         "hour" -> {
                             notifications
@@ -167,9 +172,14 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                                     }
                                     
                                     val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:00", Locale.getDefault())
-                                    "$dayLetter ${dateFormat.format(Date(cal.timeInMillis))}"
+                                    val label = "$dayLetter ${dateFormat.format(Date(cal.timeInMillis))}"
+                                    val timestamp = cal.timeInMillis
+                                    
+                                    label to timestamp
                                 }
-                                .map { (time, notifs) -> time to notifs.size }
+                                .map { (labelAndTimestamp, notifs) -> 
+                                    Triple(labelAndTimestamp.first, labelAndTimestamp.second, notifs.size)
+                                }
                         }
                         "day" -> {
                             notifications
@@ -195,12 +205,16 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                                     }
                                     
                                     val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
-                                    "$dayLetter ${dateFormat.format(Date(cal.timeInMillis))}"
+                                    val label = "$dayLetter ${dateFormat.format(Date(cal.timeInMillis))}"
+                                    val timestamp = cal.timeInMillis
+                                    
+                                    label to timestamp
                                 }
-                                .map { (time, notifs) -> time to notifs.size }
+                                .map { (labelAndTimestamp, notifs) -> 
+                                    Triple(labelAndTimestamp.first, labelAndTimestamp.second, notifs.size)
+                                }
                         }
                         "week" -> {
-                            val dateFormat = SimpleDateFormat("dd/MM/yyyy 'Sem'", Locale.getDefault())
                             notifications
                                 .groupBy { notification ->
                                     val cal = Calendar.getInstance()
@@ -211,12 +225,18 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                                     cal.set(Calendar.MINUTE, 0)
                                     cal.set(Calendar.SECOND, 0)
                                     cal.set(Calendar.MILLISECOND, 0)
-                                    dateFormat.format(Date(cal.timeInMillis))
+                                    
+                                    val dateFormat = SimpleDateFormat("dd/MM/yyyy 'Sem'", Locale.getDefault())
+                                    val label = dateFormat.format(Date(cal.timeInMillis))
+                                    val timestamp = cal.timeInMillis
+                                    
+                                    label to timestamp
                                 }
-                                .map { (time, notifs) -> time to notifs.size }
+                                .map { (labelAndTimestamp, notifs) -> 
+                                    Triple(labelAndTimestamp.first, labelAndTimestamp.second, notifs.size)
+                                }
                         }
                         "month" -> {
-                            val dateFormat = SimpleDateFormat("MM/yyyy", Locale.getDefault())
                             notifications
                                 .groupBy { notification ->
                                     val cal = Calendar.getInstance()
@@ -226,9 +246,16 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                                     cal.set(Calendar.MINUTE, 0)
                                     cal.set(Calendar.SECOND, 0)
                                     cal.set(Calendar.MILLISECOND, 0)
-                                    dateFormat.format(Date(cal.timeInMillis))
+                                    
+                                    val dateFormat = SimpleDateFormat("MM/yyyy", Locale.getDefault())
+                                    val label = dateFormat.format(Date(cal.timeInMillis))
+                                    val timestamp = cal.timeInMillis
+                                    
+                                    label to timestamp
                                 }
-                                .map { (time, notifs) -> time to notifs.size }
+                                .map { (labelAndTimestamp, notifs) -> 
+                                    Triple(labelAndTimestamp.first, labelAndTimestamp.second, notifs.size)
+                                }
                         }
                         else -> {
                             // Default to hour
@@ -254,13 +281,18 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                                     }
                                     
                                     val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:00", Locale.getDefault())
-                                    "$dayLetter ${dateFormat.format(Date(cal.timeInMillis))}"
+                                    val label = "$dayLetter ${dateFormat.format(Date(cal.timeInMillis))}"
+                                    val timestamp = cal.timeInMillis
+                                    
+                                    label to timestamp
                                 }
-                                .map { (time, notifs) -> time to notifs.size }
+                                .map { (labelAndTimestamp, notifs) -> 
+                                    Triple(labelAndTimestamp.first, labelAndTimestamp.second, notifs.size)
+                                }
                         }
                     }
                     
-                    val sortedCounts = groupedCounts.sortedBy { it.first }
+                    val sortedCounts = groupedCounts.sortedBy { it.second }
                     _lineChartData.postValue(sortedCounts)
                 } catch (e: Exception) {
                     _lineChartData.postValue(emptyList())
@@ -269,7 +301,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun loadPieChartData(startTime: Long, endTime: Long) {
+    fun loadPieChartData(startTime: Long, endTime: Long, selectedApp: String = "all") {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
                 try {
@@ -283,30 +315,51 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                     val todayStart = todayCal.timeInMillis
 
                     val notifications = database.notificationDao().getNotificationsByRange(startTime, endTime)
-                    val appStats = notifications
-                        .groupBy { it.packageName }
-                        .map { (packageName, notifs) ->
-                            val appName = try {
-                                val applicationInfo = getApplication<Application>().packageManager.getApplicationInfo(packageName, 0)
-                                getApplication<Application>().packageManager.getApplicationLabel(applicationInfo).toString()
-                            } catch (e: Exception) {
-                                packageName
+
+                    val stats = if (selectedApp == "all") {
+                        // Agrupar por aplicación
+                        notifications
+                            .groupBy { it.packageName }
+                            .map { (packageName, notifs) ->
+                                val appName = try {
+                                    val applicationInfo = getApplication<Application>().packageManager.getApplicationInfo(packageName, 0)
+                                    getApplication<Application>().packageManager.getApplicationLabel(applicationInfo).toString()
+                                } catch (e: Exception) {
+                                    packageName
+                                }
+
+                                // Contar notificaciones de hoy para esta aplicación
+                                val todayNotifications = notifs.count { it.timestamp >= todayStart }
+
+                                AppNotificationStats(
+                                    packageName = packageName,
+                                    appName = appName,
+                                    notificationCount = notifs.size,
+                                    todayNotificationCount = todayNotifications,
+                                    lastNotificationTime = notifs.maxOfOrNull { it.timestamp } ?: 0L
+                                )
                             }
-                            
-                            // Contar notificaciones de hoy para esta aplicación
-                            val todayNotifications = notifs.count { it.timestamp >= todayStart }
-                            
-                            AppNotificationStats(
-                                packageName = packageName,
-                                appName = appName,
-                                notificationCount = notifs.size,
-                                todayNotificationCount = todayNotifications,
-                                lastNotificationTime = notifs.maxOfOrNull { it.timestamp } ?: 0L
-                            )
-                        }
-                        .sortedByDescending { it.notificationCount }
-                    
-                    _pieChartData.postValue(appStats)
+                    } else {
+                        // Agrupar por chat de la aplicación seleccionada (todos los chats: grupos e individuales)
+                        notifications
+                            .filter { it.packageName == selectedApp }
+                            .groupBy { it.title ?: "Chat sin nombre" }
+                            .map { (chatName, chatNotifs) ->
+                                // Contar notificaciones de hoy para este chat
+                                val todayNotifications = chatNotifs.count { it.timestamp >= todayStart }
+
+                                AppNotificationStats(
+                                    packageName = selectedApp,
+                                    appName = chatName,
+                                    notificationCount = chatNotifs.size,
+                                    todayNotificationCount = todayNotifications,
+                                    lastNotificationTime = chatNotifs.maxOfOrNull { it.timestamp } ?: 0L
+                                )
+                            }
+                    }
+
+                    val sortedStats = stats.sortedByDescending { it.notificationCount }
+                    _pieChartData.postValue(sortedStats)
                 } catch (e: Exception) {
                     _pieChartData.postValue(emptyList())
                 }

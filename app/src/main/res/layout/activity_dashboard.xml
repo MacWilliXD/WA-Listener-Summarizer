@@ -144,7 +144,7 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:layout_marginTop="8dp"
-        android:weightSum="2">
+        android:weightSum="3">
 
         <LinearLayout
             android:layout_width="0dp"
@@ -156,17 +156,16 @@
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Fechas"
+                android:text="Aplicación"
                 android:textSize="14sp"
                 android:textStyle="bold"
                 android:textColor="@android:color/black"
                 android:layout_marginBottom="4dp" />
 
-            <Button
-                android:id="@+id/buttonPieDateRange"
-                android:layout_width="120dp"
-                android:layout_height="wrap_content"
-                android:text="Seleccionar Fechas" />
+            <Spinner
+                android:id="@+id/spinnerPieApp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
         </LinearLayout>
 
         <LinearLayout
@@ -189,6 +188,29 @@
                 android:id="@+id/spinnerPieTopApps"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center_horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Fechas"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="@android:color/black"
+                android:layout_marginBottom="4dp" />
+
+            <Button
+                android:id="@+id/buttonPieDateRange"
+                android:layout_width="120dp"
+                android:layout_height="wrap_content"
+                android:text="Seleccionar Fechas" />
         </LinearLayout>
     </LinearLayout>
 
