@@ -86,8 +86,8 @@ class DashboardActivity : AppCompatActivity() {
         // Inicializar título del gráfico de pastel
         updatePieChartTitle()
 
-        // Load initial chart data
-        viewModel.loadPieChartData(selectedStartPie, selectedEndPie)
+        // Load initial chart data with default filters
+        viewModel.loadPieChartData(selectedStartPie, selectedEndPie, selectedPieApp)
         viewModel.loadLineChartData(selectedPackage, selectedStartLine, selectedEndLine, selectedGranularity)
     }
 
@@ -754,8 +754,8 @@ class DashboardActivity : AppCompatActivity() {
         super.onResume()
         // Recargar datos cuando volvemos a la actividad
         viewModel.loadDashboardData()
-        // También recargar datos filtrados del PieChart
-        viewModel.loadPieChartData(selectedStartPie, selectedEndPie)
+        // También recargar datos filtrados del PieChart con filtro de app
+        viewModel.loadPieChartData(selectedStartPie, selectedEndPie, selectedPieApp)
         // Recargar línea del tiempo con granularidad actual
         viewModel.loadLineChartData(selectedPackage, selectedStartLine, selectedEndLine, selectedGranularity)
     }

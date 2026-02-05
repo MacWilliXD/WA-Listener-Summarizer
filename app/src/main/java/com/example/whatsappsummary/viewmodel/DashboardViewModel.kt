@@ -1,6 +1,7 @@
 package com.example.whatsappsummary.viewmodel
 
 import android.app.Application
+import android.util.Log
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
@@ -66,9 +67,23 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
     
     private fun reloadCharts() {
         // Recargar todas las gráficas cuando cambian las notificaciones
-        loadLineChartData(selectedPackage, selectedStartLine, selectedEndLine, selectedGranularity)
-        loadPieChartData(selectedStartPie, selectedEndPie, selectedPieApp)
-        loadDashboardData()
+        // Usar exactamente el mismo método que cuando se seleccionan fechas
+        // Agregar pequeño delay para asegurar que la transacción de BD se completó
+        viewModelScope.launch {
+            withContext(Dispatchers.IO) {
+                try {
+                    Thread.sleep(200) // Esperar a que la BD procese
+                } catch (e: Exception) {
+                    // ignore
+                }
+            }
+            
+            // Recargar exactamente como si se hubieran seleccionado nuevas fechas
+            Log.d("DashboardViewModel", "Reloading charts after notification update with current filters")
+            loadLineChartData(selectedPackage, selectedStartLine, selectedEndLine, selectedGranularity)
+            loadPieChartData(selectedStartPie, selectedEndPie, selectedPieApp)
+            loadDashboardData()
+        }
     }
 
     fun loadDashboardData() {
