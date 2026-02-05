@@ -186,7 +186,20 @@ class MainActivity : AppCompatActivity() {
             .setView(optsView)
             .setPositiveButton("Generar") { _, _ ->
                 binding.fabSummarizeAll.isEnabled = false
-                Toast.makeText(this, "Generando resumen general del día...", Toast.LENGTH_SHORT).show()
+                
+                // Construir mensaje informativo de filtros activos
+                val filterParts = mutableListOf<String>()
+                if (filterPackage != null) filterParts.add("aplicación")
+                if (filterStartTs != null && filterEndTs != null) filterParts.add("rango de fechas")
+                if (!filterText.isNullOrBlank()) filterParts.add("búsqueda de texto")
+                
+                val filterMsg = if (filterParts.isEmpty()) {
+                    "Generando resumen general del día..."
+                } else {
+                    "Generando resumen con filtros: ${filterParts.joinToString(", ")}..."
+                }
+                
+                Toast.makeText(this, filterMsg, Toast.LENGTH_SHORT).show()
                 val length = editLength.text?.toString()?.trim()?.toIntOrNull()
                 val detail = spinner.selectedItem as? String ?: "Intermedio"
                 val extra = editExtra.text?.toString()?.takeIf { it.isNotBlank() }
@@ -198,7 +211,17 @@ class MainActivity : AppCompatActivity() {
 
                     try {
                         val chatIds = currentFilteredChats.map { it.chatId }
-                        val summary = withContext(Dispatchers.IO) { generator.generateSummaryForChats(chatIds, length, detail, extra) }
+                        val summary = withContext(Dispatchers.IO) { 
+                            generator.generateSummaryForChats(
+                                chatIds, 
+                                length, 
+                                detail, 
+                                extra,
+                                filterStartTs,
+                                filterEndTs,
+                                filterText
+                            ) 
+                        }
 
                         // Mostrar en diálogo grande el resumen agregado
                         val filterInfo = if (filterPackage != null || filterStartTs != null || filterEndTs != null || !filterText.isNullOrBlank()) {

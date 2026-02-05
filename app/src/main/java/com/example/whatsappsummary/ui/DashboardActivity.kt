@@ -4,6 +4,7 @@ import android.app.DatePickerDialog
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
+import android.view.MotionEvent
 import android.view.View
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
@@ -22,6 +23,8 @@ import com.github.mikephil.charting.components.XAxis
 import com.github.mikephil.charting.data.*
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter
 import com.github.mikephil.charting.listener.OnChartValueSelectedListener
+import com.github.mikephil.charting.listener.ChartTouchListener
+import com.github.mikephil.charting.listener.OnChartGestureListener
 import com.github.mikephil.charting.utils.ColorTemplate
 import com.github.mikephil.charting.highlight.Highlight
 import com.github.mikephil.charting.formatter.IValueFormatter
@@ -40,9 +43,9 @@ class DashboardActivity : AppCompatActivity() {
     private var selectedEndLine: Long = 0L
     private var selectedStartPie: Long = 0L
     private var selectedEndPie: Long = 0L
-    private var selectedTopAppsLimit: Int = Int.MAX_VALUE // límite de aplicaciones a mostrar en lista
+    private var selectedTopAppsLimit: Int = 5 // límite de aplicaciones a mostrar en lista (Top 5 por defecto)
     private var selectedPieTopAppsLimit: Int = 10 // límite de aplicaciones a mostrar en pie chart
-    private var zoomMode: String = "xy" // "x", "y", o "xy"
+    private var selectedGranularity: String = "day" // granularidad por defecto: día
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -57,12 +60,9 @@ class DashboardActivity : AppCompatActivity() {
         setupObservers()
         setupButtons()
 
-        // Inicializar modo de zoom por defecto
-        setZoomMode("xy")
-
         // Load initial chart data
         viewModel.loadPieChartData(selectedStartPie, selectedEndPie)
-        viewModel.loadLineChartData(selectedPackage, selectedStartLine, selectedEndLine)
+        viewModel.loadLineChartData(selectedPackage, selectedStartLine, selectedEndLine, selectedGranularity)
     }
 
     private fun setupViewModel() {
@@ -138,8 +138,8 @@ class DashboardActivity : AppCompatActivity() {
             setTouchEnabled(true)
             setDrawGridBackground(false)
             isDragEnabled = true
-            setScaleEnabled(true)
-            setPinchZoom(true)
+            setScaleEnabled(true) // Habilitar zoom inteligente
+            setPinchZoom(true) // Habilitar pinch zoom
             legend.isEnabled = false // Deshabilitar leyenda para diseño más limpio
 
             // Configurar eje X
@@ -180,7 +180,82 @@ class DashboardActivity : AppCompatActivity() {
             // Configurar márgenes
             setExtraOffsets(10f, 20f, 20f, 10f)
 
-            // Configurar zoom y pan
+            // Configurar zoom inteligente por dirección
+            var zoomDirectionLocked = false
+            var isHorizontalZoom = false
+            var initialDistanceX = 0f
+            var initialDistanceY = 0f
+
+            onChartGestureListener = object : OnChartGestureListener {
+                override fun onChartGestureStart(me: MotionEvent?, lastPerformedGesture: ChartTouchListener.ChartGesture?) {
+                    zoomDirectionLocked = false
+                    if (me != null && me.pointerCount >= 2) {
+                        // Calcular distancia inicial entre los dos primeros dedos
+                        val x1 = me.getX(0)
+                        val y1 = me.getY(0)
+                        val x2 = me.getX(1)
+                        val y2 = me.getY(1)
+                        initialDistanceX = Math.abs(x2 - x1)
+                        initialDistanceY = Math.abs(y2 - y1)
+                    }
+                }
+
+                override fun onChartGestureEnd(me: MotionEvent?, lastPerformedGesture: ChartTouchListener.ChartGesture?) {
+                    // Resetear configuración de zoom al terminar el gesto
+                    setScaleXEnabled(true)
+                    setScaleYEnabled(true)
+                    zoomDirectionLocked = false
+                }
+
+                override fun onChartLongPressed(me: MotionEvent?) {}
+
+                override fun onChartDoubleTapped(me: MotionEvent?) {}
+
+                override fun onChartSingleTapped(me: MotionEvent?) {}
+
+                override fun onChartFling(me1: MotionEvent?, me2: MotionEvent?, velocityX: Float, velocityY: Float) {}
+
+                override fun onChartScale(me: MotionEvent?, scaleX: Float, scaleY: Float) {
+                    // Determinar dirección predominante del zoom solo al inicio
+                    if (!zoomDirectionLocked && me != null && me.pointerCount >= 2) {
+                        // Calcular distancia actual entre los dedos
+                        val x1 = me.getX(0)
+                        val y1 = me.getY(0)
+                        val x2 = me.getX(1)
+                        val y2 = me.getY(1)
+                        val currentDistanceX = Math.abs(x2 - x1)
+                        val currentDistanceY = Math.abs(y2 - y1)
+
+                        // Calcular cuánto han cambiado las distancias
+                        val deltaX = Math.abs(currentDistanceX - initialDistanceX)
+                        val deltaY = Math.abs(currentDistanceY - initialDistanceY)
+
+                        // Usar un umbral mínimo para evitar detección prematura
+                        val minThreshold = 20f // píxeles
+
+                        if (deltaX > minThreshold || deltaY > minThreshold) {
+                            if (deltaX > deltaY * 1.5f) {
+                                // Zoom principalmente horizontal
+                                setScaleXEnabled(true)
+                                setScaleYEnabled(false)
+                                isHorizontalZoom = true
+                            } else if (deltaY > deltaX * 1.5f) {
+                                // Zoom principalmente vertical
+                                setScaleXEnabled(false)
+                                setScaleYEnabled(true)
+                                isHorizontalZoom = false
+                            } else {
+                                // Cambios similares, permitir ambas direcciones
+                                setScaleXEnabled(true)
+                                setScaleYEnabled(true)
+                            }
+                            zoomDirectionLocked = true
+                        }
+                    }
+                }
+
+                override fun onChartTranslate(me: MotionEvent?, dX: Float, dY: Float) {}
+            }
             setVisibleXRangeMaximum(20f) // Máximo 20 puntos visibles
             setVisibleXRangeMinimum(3f)  // Mínimo 3 puntos visibles
         }
@@ -222,7 +297,7 @@ class DashboardActivity : AppCompatActivity() {
         val topAppsAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, topAppsLimits)
         topAppsAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         binding.spinnerTopApps.adapter = topAppsAdapter
-        binding.spinnerTopApps.setSelection(4) // Todos por defecto
+        binding.spinnerTopApps.setSelection(0) // Top 5 por defecto
         binding.spinnerTopApps.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 selectedTopAppsLimit = when (position) {
@@ -241,6 +316,28 @@ class DashboardActivity : AppCompatActivity() {
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
+
+        // Spinner para granularidad de tiempo en línea del tiempo
+        val timeGranularities = arrayOf("Minuto", "Hora", "Día", "Semana", "Mes")
+        val timeGranularityAdapter = ArrayAdapter(this, android.R.layout.simple_spinner_item, timeGranularities)
+        timeGranularityAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        binding.spinnerTimeGranularity.adapter = timeGranularityAdapter
+        binding.spinnerTimeGranularity.setSelection(2) // Día por defecto
+        binding.spinnerTimeGranularity.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+                selectedGranularity = when (position) {
+                    0 -> "minute"
+                    1 -> "hour"
+                    2 -> "day"
+                    3 -> "week"
+                    4 -> "month"
+                    else -> "hour"
+                }
+                // Recargar datos de la línea del tiempo con la nueva granularidad
+                viewModel.loadLineChartData(selectedPackage, selectedStartLine, selectedEndLine, selectedGranularity)
+            }
+            override fun onNothingSelected(parent: AdapterView<*>?) {}
+        }
     }
 
     private fun updateAppSpinner(apps: List<String>) {
@@ -252,7 +349,7 @@ class DashboardActivity : AppCompatActivity() {
         binding.spinnerApp.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 selectedPackage = if (position == 0) "all" else apps[position - 1]
-                viewModel.loadLineChartData(selectedPackage, selectedStartLine, selectedEndLine)
+                viewModel.loadLineChartData(selectedPackage, selectedStartLine, selectedEndLine, selectedGranularity)
             }
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
@@ -323,7 +420,30 @@ class DashboardActivity : AppCompatActivity() {
             valueTextColor = Color.parseColor("#3F51B5")
             valueFormatter = object : IValueFormatter {
                 override fun getFormattedValue(value: Float, entry: com.github.mikephil.charting.data.Entry?, dataSetIndex: Int, viewPortHandler: ViewPortHandler?): String {
-                    return value.toInt().toString()
+                    val currentValue = value.toInt()
+                    val index = entry?.x?.toInt() ?: 0
+                    
+                    // Calcular cambio porcentual respecto al valor anterior
+                    val percentageText = if (index > 0 && index < entries.size) {
+                        val previousValue = entries[index - 1].y.toInt()
+                        if (previousValue > 0) {
+                            val change = currentValue - previousValue
+                            val percentage = (change.toFloat() / previousValue.toFloat() * 100).toInt()
+                            if (percentage > 0) {
+                                " ▲+${percentage}%"
+                            } else if (percentage < 0) {
+                                " ▼${percentage}%"
+                            } else {
+                                " ▬0%"
+                            }
+                        } else {
+                            " ▲+${currentValue}%" // Si el anterior era 0, mostrar el valor actual como aumento
+                        }
+                    } else {
+                        "" // No mostrar porcentaje para el primer punto
+                    }
+                    
+                    return "$currentValue$percentageText"
                 }
             }
 
@@ -361,9 +481,6 @@ class DashboardActivity : AppCompatActivity() {
 
             // Animación suave
             animateXY(1500, 1500)
-
-            // Aplicar configuración de zoom según el modo seleccionado
-            applyZoomConfiguration()
         }
     }
 
@@ -406,7 +523,7 @@ class DashboardActivity : AppCompatActivity() {
             // Recargar todos los datos del dashboard
             viewModel.loadDashboardData()
             viewModel.loadPieChartData(selectedStartPie, selectedEndPie)
-            viewModel.loadLineChartData(selectedPackage, selectedStartLine, selectedEndLine)
+            viewModel.loadLineChartData(selectedPackage, selectedStartLine, selectedEndLine, selectedGranularity)
             Toast.makeText(this, "Dashboard actualizado", Toast.LENGTH_SHORT).show()
         }
 
@@ -418,65 +535,6 @@ class DashboardActivity : AppCompatActivity() {
 
         binding.buttonLineDateRange.setOnClickListener {
             showDateRangePicker(false)
-        }
-
-        // Configurar botones de zoom
-        binding.buttonZoomX.setOnClickListener {
-            setZoomMode("x")
-        }
-
-        binding.buttonZoomY.setOnClickListener {
-            setZoomMode("y")
-        }
-
-        binding.buttonZoomXY.setOnClickListener {
-            setZoomMode("xy")
-        }
-    }
-
-    private fun setZoomMode(mode: String) {
-        zoomMode = mode
-
-        // Actualizar apariencia de botones
-        when (mode) {
-            "x" -> {
-                binding.buttonZoomX.setBackgroundColor(Color.parseColor("#E3F2FD")) // Azul claro
-                binding.buttonZoomY.setBackgroundColor(Color.TRANSPARENT)
-                binding.buttonZoomXY.setBackgroundColor(Color.TRANSPARENT)
-            }
-            "y" -> {
-                binding.buttonZoomX.setBackgroundColor(Color.TRANSPARENT)
-                binding.buttonZoomY.setBackgroundColor(Color.parseColor("#E3F2FD")) // Azul claro
-                binding.buttonZoomXY.setBackgroundColor(Color.TRANSPARENT)
-            }
-            "xy" -> {
-                binding.buttonZoomX.setBackgroundColor(Color.TRANSPARENT)
-                binding.buttonZoomY.setBackgroundColor(Color.TRANSPARENT)
-                binding.buttonZoomXY.setBackgroundColor(Color.parseColor("#E3F2FD")) // Azul claro
-            }
-        }
-
-        // Aplicar configuración de zoom al chart actual
-        applyZoomConfiguration()
-    }
-
-    private fun applyZoomConfiguration() {
-        binding.lineChart.apply {
-            when (zoomMode) {
-                "x" -> {
-                    setScaleXEnabled(true)
-                    setScaleYEnabled(false)
-                }
-                "y" -> {
-                    setScaleXEnabled(false)
-                    setScaleYEnabled(true)
-                }
-                "xy" -> {
-                    setScaleXEnabled(true)
-                    setScaleYEnabled(true)
-                }
-            }
-            invalidate()
         }
     }
 
@@ -551,7 +609,7 @@ class DashboardActivity : AppCompatActivity() {
                 } else {
                     selectedStartLine = selectedStart
                     selectedEndLine = selectedEnd
-                    viewModel.loadLineChartData(selectedPackage, selectedStartLine, selectedEndLine)
+                    viewModel.loadLineChartData(selectedPackage, selectedStartLine, selectedEndLine, selectedGranularity)
                 }
             }, endYear, endMonth, endDay).show()
         }, startYear, startMonth, startDay).show()
@@ -563,5 +621,7 @@ class DashboardActivity : AppCompatActivity() {
         viewModel.loadDashboardData()
         // También recargar datos filtrados del PieChart
         viewModel.loadPieChartData(selectedStartPie, selectedEndPie)
+        // Recargar línea del tiempo con granularidad actual
+        viewModel.loadLineChartData(selectedPackage, selectedStartLine, selectedEndLine, selectedGranularity)
     }
 }

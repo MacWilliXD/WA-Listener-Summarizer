@@ -32,28 +32,59 @@ class SummaryGenerator(
     private val urlBase = "https://openrouter.ai/api/v1/chat/completions"
 
     // Variables globales para API key y model
-    private val defaultApiKey = "YOUR API"
+    private val defaultApiKey = "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"
     private val defaultModel = "arcee-ai/trinity-large-preview:free"
 
     suspend fun generateDailySummary(
         chatId: String,
         summaryLength: Int? = null,
         detailLevel: String = "Intermedio",
-        extraPrompt: String? = null
+        extraPrompt: String? = null,
+        startTimestamp: Long? = null,
+        endTimestamp: Long? = null,
+        filterText: String? = null
     ): String = withContext(Dispatchers.IO) {
         try {
-            val (startOfDay, endOfDay) = todayRange()
+            val (startOfDay, endOfDay) = if (startTimestamp != null && endTimestamp != null) {
+                Pair(startTimestamp, endTimestamp)
+            } else {
+                todayRange()
+            }
             // Prefer notifications as the primary data source
             val notifications = try { 
-                repository.getNotificationsByChatIdAndRange(chatId, startOfDay, endOfDay) 
+                repository.getNotificationsByChatIdAndRange(chatId, startOfDay, endOfDay)
             } catch (e: Exception) { 
                 emptyList<com.example.whatsappsummary.data.entity.Notification>() 
             }
             
-            if (notifications.isEmpty()) {
+            // Aplicar filtro de texto si existe
+            val filteredNotifications = if (!filterText.isNullOrBlank()) {
+                val normalizedFilter = filterText.lowercase()
+                notifications.filter { notif ->
+                    (notif.text.lowercase().contains(normalizedFilter)) ||
+                    (notif.title?.lowercase()?.contains(normalizedFilter) == true) ||
+                    (notif.appName?.lowercase()?.contains(normalizedFilter) == true)
+                }
+            } else {
+                notifications
+            } 
+            
+            if (filteredNotifications.isEmpty()) {
                 // Fallback a mensajes antiguos si no hay notificaciones
                 val messages = repository.getMessagesByDateRange(chatId, startOfDay, endOfDay)
-                if (messages.isEmpty()) return@withContext "No hay mensajes hoy para este chat."
+                
+                // Aplicar filtro de texto a mensajes
+                val filteredMessages = if (!filterText.isNullOrBlank()) {
+                    val normalizedFilter = filterText.lowercase()
+                    messages.filter { msg ->
+                        (msg.messageText?.lowercase()?.contains(normalizedFilter) == true) ||
+                        (msg.senderName?.lowercase()?.contains(normalizedFilter) == true)
+                    }
+                } else {
+                    messages
+                }
+                
+                if (filteredMessages.isEmpty()) return@withContext "No hay mensajes que coincidan con los filtros aplicados."
                 val systemPrompt = buildSystemPrompt(detailLevel, extraPrompt)
                 val userContent = buildUserContent(messages)
                 try {
@@ -62,8 +93,8 @@ class SummaryGenerator(
                     val resp = callChatCompletionApi(key, model, systemPrompt, userContent, summaryLength)
                     if (!resp.isNullOrBlank()) {
                         var finalResp = resp.trim()
-                        val actions = extractActionItems(messages)
-                        val urgent = detectUrgency(messages)
+                        val actions = extractActionItems(filteredMessages)
+                        val urgent = detectUrgency(filteredMessages)
                         if (urgent && !finalResp.startsWith("URGENTE!!", ignoreCase = true)) {
                             finalResp = "URGENTE!!\n" + finalResp
                         }
@@ -79,15 +110,15 @@ class SummaryGenerator(
                 return@withContext "ERROR: No se pudo generar resumen con la clave/modelo proporcionado."
             } else {
                 val systemPrompt = buildSystemPrompt(detailLevel, extraPrompt)
-                val userContent = buildUserContentFromNotifications(notifications)
+                val userContent = buildUserContentFromNotifications(filteredNotifications)
                 try {
                     val key = defaultApiKey
                     val model = defaultModel
                     val resp = callChatCompletionApi(key, model, systemPrompt, userContent, summaryLength)
                     if (!resp.isNullOrBlank()) {
                         var finalResp = resp.trim()
-                        val actions = extractActionItemsFromNotifications(notifications)
-                        val urgent = detectUrgencyFromNotifications(notifications)
+                        val actions = extractActionItemsFromNotifications(filteredNotifications)
+                        val urgent = detectUrgencyFromNotifications(filteredNotifications)
                         if (urgent && !finalResp.startsWith("URGENTE!!", ignoreCase = true)) {
                             finalResp = "URGENTE!!\n" + finalResp
                         }
@@ -111,10 +142,17 @@ class SummaryGenerator(
         chatIds: List<String>,
         summaryLength: Int? = null,
         detailLevel: String = "Intermedio",
-        extraPrompt: String? = null
+        extraPrompt: String? = null,
+        startTimestamp: Long? = null,
+        endTimestamp: Long? = null,
+        filterText: String? = null
     ): String = withContext(Dispatchers.IO) {
         try {
-            val (startOfDay, endOfDay) = todayRange()
+            val (startOfDay, endOfDay) = if (startTimestamp != null && endTimestamp != null) {
+                Pair(startTimestamp, endTimestamp)
+            } else {
+                todayRange()
+            }
             val allMessages = mutableListOf<com.example.whatsappsummary.data.entity.Message>()
             for (cid in chatIds) {
                 try {
@@ -124,10 +162,22 @@ class SummaryGenerator(
                     // ignorar chat si falla
                 }
             }
-            if (allMessages.isEmpty()) return@withContext "No hay mensajes hoy en ningún chat."
+            
+            // Aplicar filtro de texto si existe
+            val filteredMessages = if (!filterText.isNullOrBlank()) {
+                val normalizedFilter = filterText.lowercase()
+                allMessages.filter { msg ->
+                    (msg.messageText?.lowercase()?.contains(normalizedFilter) == true) ||
+                    (msg.senderName?.lowercase()?.contains(normalizedFilter) == true)
+                }
+            } else {
+                allMessages
+            }
+            
+            if (filteredMessages.isEmpty()) return@withContext "No hay mensajes que coincidan con los filtros aplicados."
 
             val systemPrompt = buildSystemPrompt(detailLevel, extraPrompt)
-            val userContent = buildUserContent(allMessages.sortedBy { it.timestamp })
+            val userContent = buildUserContent(filteredMessages.sortedBy { it.timestamp })
 
             val key = defaultApiKey
             val model = defaultModel
@@ -136,8 +186,8 @@ class SummaryGenerator(
                 if (!resp.isNullOrBlank()) {
                     var finalResp = resp.trim()
 
-                    val actions = extractActionItems(allMessages)
-                    val urgent = detectUrgency(allMessages)
+                    val actions = extractActionItems(filteredMessages)
+                    val urgent = detectUrgency(filteredMessages)
 
                     if (urgent && !finalResp.startsWith("URGENTE!!", ignoreCase = true)) {
                         finalResp = "URGENTE!!\n" + finalResp

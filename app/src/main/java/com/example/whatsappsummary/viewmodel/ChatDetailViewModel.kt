@@ -242,7 +242,10 @@ class ChatDetailViewModel(application: Application) : AndroidViewModel(applicati
                             cid,
                             summaryLength,
                             detailLevel ?: "Intermedio",
-                            extraPrompt
+                            extraPrompt,
+                            filterStart,
+                            filterEnd,
+                            filterText
                         )
                     }
                 } catch (e: Exception) {

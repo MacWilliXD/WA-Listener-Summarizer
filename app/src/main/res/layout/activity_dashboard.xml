@@ -8,9 +8,10 @@
     android:background="@android:color/white"
     android:padding="16dp">
 
-    <androidx.constraintlayout.widget.ConstraintLayout
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        android:orientation="vertical">
 
     <!-- Título y botón de recarga -->
     <LinearLayout
@@ -19,9 +20,6 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:gravity="center_vertical"
-        app:layout_constraintTop_toTopOf="parent"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
         android:layout_marginTop="16dp">
 
         <TextView
@@ -52,101 +50,81 @@
     <!-- Estadísticas principales -->
     <androidx.cardview.widget.CardView
         android:id="@+id/cardStats"
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
+        android:layout_marginTop="16dp"
         android:layout_marginStart="4dp"
         android:layout_marginEnd="4dp"
         app:cardCornerRadius="8dp"
         app:cardElevation="4dp"
-        app:layout_constraintTop_toBottomOf="@+id/layoutTitle"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
+
         app:cardUseCompatPadding="true">
 
-        <LinearLayout
+        <GridLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="vertical"
-            android:padding="16dp">
+            android:columnCount="2"
+            android:rowCount="3"
+            android:padding="16dp"
+            android:useDefaultMargins="true">
 
             <!-- Total de notificaciones -->
-            <LinearLayout
-                android:layout_width="match_parent"
+            <TextView
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginBottom="12dp">
+                android:layout_columnWeight="1"
+                android:text="Total de notificaciones:"
+                android:textSize="16sp"
+                android:textColor="@android:color/black" />
 
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Total de notificaciones:"
-                    android:textSize="16sp"
-                    android:textColor="@android:color/black" />
-
-                <TextView
-                    android:id="@+id/textTotalNotifications"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="0"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/design_default_color_primary"
-                    tools:text="1,234" />
-            </LinearLayout>
+            <TextView
+                android:id="@+id/textTotalNotifications"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="@color/design_default_color_primary"
+                tools:text="1,234" />
 
             <!-- Aplicaciones emisoras -->
-            <LinearLayout
-                android:layout_width="match_parent"
+            <TextView
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:layout_marginBottom="12dp">
+                android:layout_columnWeight="1"
+                android:text="Aplicaciones emisoras:"
+                android:textSize="16sp"
+                android:textColor="@android:color/black" />
 
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Aplicaciones emisoras:"
-                    android:textSize="16sp"
-                    android:textColor="@android:color/black" />
-
-                <TextView
-                    android:id="@+id/textTotalApps"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="0"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/design_default_color_primary"
-                    tools:text="12" />
-            </LinearLayout>
+            <TextView
+                android:id="@+id/textTotalApps"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="@color/design_default_color_primary"
+                tools:text="12" />
 
             <!-- Notificaciones hoy -->
-            <LinearLayout
-                android:layout_width="match_parent"
+            <TextView
+                android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal">
+                android:layout_columnWeight="1"
+                android:text="Notificaciones hoy:"
+                android:textSize="16sp"
+                android:textColor="@android:color/black" />
 
-                <TextView
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:text="Notificaciones hoy:"
-                    android:textSize="16sp"
-                    android:textColor="@android:color/black" />
-
-                <TextView
-                    android:id="@+id/textTodayNotifications"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:text="0"
-                    android:textSize="18sp"
-                    android:textStyle="bold"
-                    android:textColor="@color/design_default_color_primary"
-                    tools:text="45" />
-            </LinearLayout>
-        </LinearLayout>
+            <TextView
+                android:id="@+id/textTodayNotifications"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="0"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:textColor="@color/design_default_color_primary"
+                tools:text="45" />
+        </GridLayout>
     </androidx.cardview.widget.CardView>
 
     <!-- Gráfica de pastel -->
@@ -158,39 +136,71 @@
         android:textSize="18sp"
         android:textStyle="bold"
         android:textColor="@android:color/black"
-        app:layout_constraintTop_toBottomOf="@id/cardStats"
-        app:layout_constraintStart_toStartOf="parent"
-        android:layout_marginTop="24dp" />
+        android:layout_marginTop="16dp" />
 
-    <Spinner
-        android:id="@+id/spinnerPieTopApps"
-        android:layout_width="wrap_content"
+    <!-- Filtros del gráfico de pastel -->
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:orientation="horizontal"
         android:layout_marginTop="8dp"
-        app:layout_constraintTop_toBottomOf="@id/textPieChartTitle"
-        app:layout_constraintStart_toStartOf="parent" />
+        android:weightSum="2">
 
-    <Button
-        android:id="@+id/buttonPieDateRange"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="Seleccionar Rango de Fechas"
-        android:layout_marginTop="8dp"
-        app:layout_constraintTop_toBottomOf="@id/textPieChartTitle"
-        app:layout_constraintEnd_toEndOf="parent" />
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center_horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Fechas"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="@android:color/black"
+                android:layout_marginBottom="4dp" />
+
+            <Button
+                android:id="@+id/buttonPieDateRange"
+                android:layout_width="120dp"
+                android:layout_height="wrap_content"
+                android:text="Seleccionar Fechas" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center_horizontal">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Top"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="@android:color/black"
+                android:layout_marginBottom="4dp" />
+
+            <Spinner
+                android:id="@+id/spinnerPieTopApps"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+    </LinearLayout>
 
     <androidx.cardview.widget.CardView
         android:id="@+id/cardPieChart"
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="320dp"
         android:layout_marginTop="8dp"
         android:layout_marginStart="4dp"
         android:layout_marginEnd="4dp"
         app:cardCornerRadius="8dp"
         app:cardElevation="4dp"
-        app:layout_constraintTop_toBottomOf="@id/buttonPieDateRange"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
         app:cardUseCompatPadding="true">
 
         <com.github.mikephil.charting.charts.PieChart
@@ -209,88 +219,93 @@
         android:textSize="18sp"
         android:textStyle="bold"
         android:textColor="@android:color/black"
-        app:layout_constraintTop_toBottomOf="@id/cardPieChart"
-        app:layout_constraintStart_toStartOf="parent"
-        android:layout_marginTop="24dp" />
+        android:layout_marginTop="16dp" />
 
-    <!-- Spinners para selección -->
+    <!-- Filtros de la línea del tiempo -->
     <LinearLayout
-        android:id="@+id/layoutSpinners"
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
         android:layout_marginTop="8dp"
-        app:layout_constraintTop_toBottomOf="@id/textTimelineTitle"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+        android:weightSum="3">
 
-        <Spinner
-            android:id="@+id/spinnerApp"
+        <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:layout_marginEnd="8dp" />
+            android:orientation="vertical"
+            android:gravity="center_horizontal">
 
-        <Button
-            android:id="@+id/buttonLineDateRange"
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Aplicación"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="@android:color/black"
+                android:layout_marginBottom="4dp" />
+
+            <Spinner
+                android:id="@+id/spinnerApp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:text="Seleccionar Rango" />
-    </LinearLayout>
+            android:orientation="vertical"
+            android:gravity="center_horizontal">
 
-    <!-- Controles de zoom para el gráfico de línea -->
-    <LinearLayout
-        android:id="@+id/layoutZoomControls"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:orientation="horizontal"
-        android:layout_marginTop="8dp"
-        app:layout_constraintTop_toBottomOf="@id/layoutSpinners"
-        app:layout_constraintEnd_toEndOf="parent">
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Tiempo"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="@android:color/black"
+                android:layout_marginBottom="4dp" />
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/buttonZoomX"
-            android:layout_width="wrap_content"
+            <Spinner
+                android:id="@+id/spinnerTimeGranularity"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
-            android:text="Zoom X"
-            android:textSize="12sp"
-            app:cornerRadius="16dp"
-            android:layout_marginEnd="4dp"
-            style="@style/Widget.MaterialComponents.Button.TextButton" />
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center_horizontal">
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/buttonZoomY"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Zoom Y"
-            android:textSize="12sp"
-            app:cornerRadius="16dp"
-            android:layout_marginEnd="4dp"
-            style="@style/Widget.MaterialComponents.Button.TextButton" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="Fechas"
+                android:textSize="14sp"
+                android:textStyle="bold"
+                android:textColor="@android:color/black"
+                android:layout_marginBottom="4dp" />
 
-        <com.google.android.material.button.MaterialButton
-            android:id="@+id/buttonZoomXY"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="Zoom XY"
-            android:textSize="12sp"
-            app:cornerRadius="16dp"
-            style="@style/Widget.MaterialComponents.Button.OutlinedButton" />
+            <Button
+                android:id="@+id/buttonLineDateRange"
+                android:layout_width="120dp"
+                android:layout_height="wrap_content"
+                android:text="Seleccionar Fechas" />
+        </LinearLayout>
     </LinearLayout>
 
     <androidx.cardview.widget.CardView
         android:id="@+id/cardLineChart"
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="320dp"
         android:layout_marginTop="8dp"
         android:layout_marginStart="4dp"
         android:layout_marginEnd="4dp"
         app:cardCornerRadius="8dp"
         app:cardElevation="4dp"
-        app:layout_constraintTop_toBottomOf="@id/layoutSpinners"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
         app:cardUseCompatPadding="true">
 
         <com.github.mikephil.charting.charts.LineChart
@@ -309,41 +324,47 @@
         android:textSize="18sp"
         android:textStyle="bold"
         android:textColor="@android:color/black"
-        app:layout_constraintTop_toBottomOf="@id/cardLineChart"
-        app:layout_constraintStart_toStartOf="parent"
-        android:layout_marginTop="24dp" />
+        android:layout_marginTop="16dp" />
 
-    <Spinner
-        android:id="@+id/spinnerTopApps"
-        android:layout_width="wrap_content"
+    <!-- Filtro de la lista de aplicaciones -->
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:orientation="horizontal"
         android:layout_marginTop="8dp"
-        app:layout_constraintTop_toBottomOf="@id/textTopApps"
-        app:layout_constraintEnd_toEndOf="parent" />
+        android:gravity="center_horizontal">
+
+        <TextView
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="Top"
+            android:textSize="14sp"
+            android:textStyle="bold"
+            android:textColor="@android:color/black"
+            android:layout_marginEnd="8dp" />
+
+        <Spinner
+            android:id="@+id/spinnerTopApps"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content" />
+    </LinearLayout>
 
     <androidx.recyclerview.widget.RecyclerView
         android:id="@+id/recyclerTopApps"
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginTop="8dp"
         android:layout_marginBottom="16dp"
-        android:nestedScrollingEnabled="false"
-        app:layout_constraintTop_toBottomOf="@id/spinnerTopApps"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"
-        tools:listitem="@layout/item_app_stats" />
+        android:nestedScrollingEnabled="false" />
 
     <!-- Botón para ver lista de chats (vista anterior) -->
     <com.google.android.material.button.MaterialButton
         android:id="@+id/buttonViewChats"
-        android:layout_width="0dp"
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Ver lista de chats"
         android:layout_marginTop="16dp"
-        android:layout_marginBottom="24dp"
-        app:layout_constraintTop_toBottomOf="@id/recyclerTopApps"
-        app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        android:layout_marginBottom="24dp" />
 
-    </androidx.constraintlayout.widget.ConstraintLayout>
+    </LinearLayout>
 </ScrollView>

@@ -65,6 +65,9 @@ class NotificationCaptureService : NotificationListenerService() {
         super.onCreate()
         database = AppDatabase.getDatabase(applicationContext)
         Log.d(TAG, "Service created")
+
+        // Programar generación automática de resúmenes diarios a las 23:00
+        DailySummaryWorker.scheduleDailyWork(applicationContext)
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
@@ -293,15 +296,8 @@ class NotificationCaptureService : NotificationListenerService() {
             Log.d(TAG, "Duplicate other-notification detected, skipping")
         }
 
-        // Only generate automatic daily summary if enabled for this chat
-        val prefsAuto = applicationContext.getSharedPreferences("whatsapp_prefs", MODE_PRIVATE)
-        val autoKey = "auto_summaries_${finalChatId}"
-        val enabled = prefsAuto.getBoolean(autoKey, false)
-        if (enabled) {
-            generateDailySummary(finalChatId, timestamp)
-        } else {
-            Log.d(TAG, "Auto summary disabled for $finalChatId")
-        }
+        // Automatic daily summaries are now handled by DailySummaryWorker at 23:00
+        // Removed automatic generation on notification processing
     }
 
     private suspend fun saveNotificationData(notificationPackage: String, title: String, messageText: String) {
@@ -413,69 +409,8 @@ class NotificationCaptureService : NotificationListenerService() {
             Log.d(TAG, "Mensaje duplicado detectado, omitiendo insert: $chatId | $senderName | $actualMessage")
         }
 
-        // Generar resumen diario sólo si está activado para este chat
-        val prefsAuto = applicationContext.getSharedPreferences("whatsapp_prefs", MODE_PRIVATE)
-        val autoKey = "auto_summaries_${chatId}"
-        val enabled = prefsAuto.getBoolean(autoKey, false)
-        if (enabled) {
-            generateDailySummary(chatId, timestamp)
-        } else {
-            Log.d(TAG, "Auto summary disabled for $chatId")
-        }
-    }
-
-    private suspend fun generateDailySummary(chatId: String, timestamp: Long) {
-        val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
-        val date = dateFormat.format(Date(timestamp))
-        
-        // Obtener inicio y fin del día
-        val calendar = Calendar.getInstance()
-        calendar.timeInMillis = timestamp
-        calendar.set(Calendar.HOUR_OF_DAY, 0)
-        calendar.set(Calendar.MINUTE, 0)
-        calendar.set(Calendar.SECOND, 0)
-        calendar.set(Calendar.MILLISECOND, 0)
-        val startOfDay = calendar.timeInMillis
-        
-        calendar.set(Calendar.HOUR_OF_DAY, 23)
-        calendar.set(Calendar.MINUTE, 59)
-        calendar.set(Calendar.SECOND, 59)
-        calendar.set(Calendar.MILLISECOND, 999)
-        val endOfDay = calendar.timeInMillis
-        
-        // Obtener mensajes del día (para contar)
-        val messages = database.messageDao().getMessagesByDateRange(chatId, startOfDay, endOfDay)
-        val messageCount = messages.size
-
-        // Generar resumen automático usando SummaryGenerator (poco detallado)
-        try {
-            val repo = com.example.whatsappsummary.repository.NotificationRepository(database.chatDao(), database.messageDao(), database.dailySummaryDao(), database.notificationDao())
-            val generator = com.example.whatsappsummary.util.SummaryGenerator(applicationContext, repo)
-            // resumen corto: detalle 'Resumido', límite de tokens pequeño
-            val generated = generator.generateDailySummary(chatId, summaryLength = 120, detailLevel = "Resumido", extraPrompt = null)
-
-            val existingAuto = database.dailySummaryDao().getSummaryByDateAndType(chatId, date, "automatic")
-            if (existingAuto == null) {
-                val newSummary = com.example.whatsappsummary.data.entity.DailySummary(
-                    chatId = chatId,
-                    date = date,
-                    messageCount = messageCount,
-                    summary = generated,
-                    timestamp = timestamp,
-                    type = "automatic"
-                )
-                database.dailySummaryDao().insertSummary(newSummary)
-            } else {
-                val updatedSummary = existingAuto.copy(
-                    messageCount = messageCount,
-                    summary = generated,
-                    timestamp = timestamp
-                )
-                database.dailySummaryDao().updateSummary(updatedSummary)
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error generating automatic summary via API", e)
-        }
+        // Automatic daily summaries are now handled by DailySummaryWorker at 23:00
+        // Removed automatic generation on notification processing
     }
 
     override fun onNotificationRemoved(sbn: StatusBarNotification) {

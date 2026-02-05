@@ -52,6 +52,15 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
 
                 // Notificaciones por aplicación (procesamiento en Kotlin)
                 try {
+                    // Calcular el inicio del día actual
+                    val todayCal = Calendar.getInstance()
+                    todayCal.timeInMillis = System.currentTimeMillis()
+                    todayCal.set(Calendar.HOUR_OF_DAY, 0)
+                    todayCal.set(Calendar.MINUTE, 0)
+                    todayCal.set(Calendar.SECOND, 0)
+                    todayCal.set(Calendar.MILLISECOND, 0)
+                    val todayStart = todayCal.timeInMillis
+
                     val allNotifications = database.notificationDao().getNotificationsByRange(0, System.currentTimeMillis())
                     val appStats = allNotifications
                         .groupBy { it.packageName }
@@ -64,10 +73,14 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                                 packageName // Fallback al packageName si no se puede obtener el nombre
                             }
                             
+                            // Contar notificaciones de hoy para esta aplicación
+                            val todayNotifications = notifications.count { it.timestamp >= todayStart }
+                            
                             AppNotificationStats(
                                 packageName = packageName,
                                 appName = appName,
                                 notificationCount = notifications.size,
+                                todayNotificationCount = todayNotifications,
                                 lastNotificationTime = notifications.maxOfOrNull { it.timestamp } ?: 0L
                             )
                         }
@@ -93,7 +106,7 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         }
     }
 
-    fun loadLineChartData(packageName: String, startTime: Long, endTime: Long) {
+    fun loadLineChartData(packageName: String, startTime: Long, endTime: Long, granularity: String = "hour") {
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
                 try {
@@ -103,21 +116,152 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                         database.notificationDao().getNotificationsByPackageAndRange(packageName, startTime, endTime)
                     }
                     
-                    // Agrupar por hora
-                    val dateFormat = SimpleDateFormat("dd/MM HH:00", Locale.getDefault())
-                    val hourlyCounts = notifications
-                        .groupBy { notification ->
-                            val cal = Calendar.getInstance()
-                            cal.timeInMillis = notification.timestamp
-                            cal.set(Calendar.MINUTE, 0)
-                            cal.set(Calendar.SECOND, 0)
-                            cal.set(Calendar.MILLISECOND, 0)
-                            dateFormat.format(Date(cal.timeInMillis))
+                    // Agrupar según la granularidad seleccionada
+                    val groupedCounts = when (granularity) {
+                        "minute" -> {
+                            notifications
+                                .groupBy { notification ->
+                                    val cal = Calendar.getInstance()
+                                    cal.timeInMillis = notification.timestamp
+                                    cal.set(Calendar.SECOND, 0)
+                                    cal.set(Calendar.MILLISECOND, 0)
+                                    
+                                    // Obtener la letra del día de la semana
+                                    val dayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
+                                    val dayLetter = when (dayOfWeek) {
+                                        Calendar.MONDAY -> "L"
+                                        Calendar.TUESDAY -> "M"
+                                        Calendar.WEDNESDAY -> "X"
+                                        Calendar.THURSDAY -> "J"
+                                        Calendar.FRIDAY -> "V"
+                                        Calendar.SATURDAY -> "S"
+                                        Calendar.SUNDAY -> "D"
+                                        else -> "?"
+                                    }
+                                    
+                                    val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:mm", Locale.getDefault())
+                                    "$dayLetter ${dateFormat.format(Date(cal.timeInMillis))}"
+                                }
+                                .map { (time, notifs) -> time to notifs.size }
                         }
-                        .map { (hour, notifs) -> hour to notifs.size }
-                        .sortedBy { it.first }
+                        "hour" -> {
+                            notifications
+                                .groupBy { notification ->
+                                    val cal = Calendar.getInstance()
+                                    cal.timeInMillis = notification.timestamp
+                                    cal.set(Calendar.MINUTE, 0)
+                                    cal.set(Calendar.SECOND, 0)
+                                    cal.set(Calendar.MILLISECOND, 0)
+                                    
+                                    // Obtener la letra del día de la semana
+                                    val dayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
+                                    val dayLetter = when (dayOfWeek) {
+                                        Calendar.MONDAY -> "L"
+                                        Calendar.TUESDAY -> "M"
+                                        Calendar.WEDNESDAY -> "X"
+                                        Calendar.THURSDAY -> "J"
+                                        Calendar.FRIDAY -> "V"
+                                        Calendar.SATURDAY -> "S"
+                                        Calendar.SUNDAY -> "D"
+                                        else -> "?"
+                                    }
+                                    
+                                    val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:00", Locale.getDefault())
+                                    "$dayLetter ${dateFormat.format(Date(cal.timeInMillis))}"
+                                }
+                                .map { (time, notifs) -> time to notifs.size }
+                        }
+                        "day" -> {
+                            notifications
+                                .groupBy { notification ->
+                                    val cal = Calendar.getInstance()
+                                    cal.timeInMillis = notification.timestamp
+                                    cal.set(Calendar.HOUR_OF_DAY, 0)
+                                    cal.set(Calendar.MINUTE, 0)
+                                    cal.set(Calendar.SECOND, 0)
+                                    cal.set(Calendar.MILLISECOND, 0)
+                                    
+                                    // Obtener la letra del día de la semana
+                                    val dayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
+                                    val dayLetter = when (dayOfWeek) {
+                                        Calendar.MONDAY -> "L"
+                                        Calendar.TUESDAY -> "M"
+                                        Calendar.WEDNESDAY -> "X"
+                                        Calendar.THURSDAY -> "J"
+                                        Calendar.FRIDAY -> "V"
+                                        Calendar.SATURDAY -> "S"
+                                        Calendar.SUNDAY -> "D"
+                                        else -> "?"
+                                    }
+                                    
+                                    val dateFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+                                    "$dayLetter ${dateFormat.format(Date(cal.timeInMillis))}"
+                                }
+                                .map { (time, notifs) -> time to notifs.size }
+                        }
+                        "week" -> {
+                            val dateFormat = SimpleDateFormat("dd/MM/yyyy 'Sem'", Locale.getDefault())
+                            notifications
+                                .groupBy { notification ->
+                                    val cal = Calendar.getInstance()
+                                    cal.timeInMillis = notification.timestamp
+                                    // Set to start of week (Sunday or Monday depending on locale)
+                                    cal.set(Calendar.DAY_OF_WEEK, cal.firstDayOfWeek)
+                                    cal.set(Calendar.HOUR_OF_DAY, 0)
+                                    cal.set(Calendar.MINUTE, 0)
+                                    cal.set(Calendar.SECOND, 0)
+                                    cal.set(Calendar.MILLISECOND, 0)
+                                    dateFormat.format(Date(cal.timeInMillis))
+                                }
+                                .map { (time, notifs) -> time to notifs.size }
+                        }
+                        "month" -> {
+                            val dateFormat = SimpleDateFormat("MM/yyyy", Locale.getDefault())
+                            notifications
+                                .groupBy { notification ->
+                                    val cal = Calendar.getInstance()
+                                    cal.timeInMillis = notification.timestamp
+                                    cal.set(Calendar.DAY_OF_MONTH, 1)
+                                    cal.set(Calendar.HOUR_OF_DAY, 0)
+                                    cal.set(Calendar.MINUTE, 0)
+                                    cal.set(Calendar.SECOND, 0)
+                                    cal.set(Calendar.MILLISECOND, 0)
+                                    dateFormat.format(Date(cal.timeInMillis))
+                                }
+                                .map { (time, notifs) -> time to notifs.size }
+                        }
+                        else -> {
+                            // Default to hour
+                            notifications
+                                .groupBy { notification ->
+                                    val cal = Calendar.getInstance()
+                                    cal.timeInMillis = notification.timestamp
+                                    cal.set(Calendar.MINUTE, 0)
+                                    cal.set(Calendar.SECOND, 0)
+                                    cal.set(Calendar.MILLISECOND, 0)
+                                    
+                                    // Obtener la letra del día de la semana
+                                    val dayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
+                                    val dayLetter = when (dayOfWeek) {
+                                        Calendar.MONDAY -> "L"
+                                        Calendar.TUESDAY -> "M"
+                                        Calendar.WEDNESDAY -> "X"
+                                        Calendar.THURSDAY -> "J"
+                                        Calendar.FRIDAY -> "V"
+                                        Calendar.SATURDAY -> "S"
+                                        Calendar.SUNDAY -> "D"
+                                        else -> "?"
+                                    }
+                                    
+                                    val dateFormat = SimpleDateFormat("dd/MM/yyyy HH:00", Locale.getDefault())
+                                    "$dayLetter ${dateFormat.format(Date(cal.timeInMillis))}"
+                                }
+                                .map { (time, notifs) -> time to notifs.size }
+                        }
+                    }
                     
-                    _lineChartData.postValue(hourlyCounts)
+                    val sortedCounts = groupedCounts.sortedBy { it.first }
+                    _lineChartData.postValue(sortedCounts)
                 } catch (e: Exception) {
                     _lineChartData.postValue(emptyList())
                 }
@@ -129,6 +273,15 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
         viewModelScope.launch {
             withContext(Dispatchers.IO) {
                 try {
+                    // Calcular el inicio del día actual
+                    val todayCal = Calendar.getInstance()
+                    todayCal.timeInMillis = System.currentTimeMillis()
+                    todayCal.set(Calendar.HOUR_OF_DAY, 0)
+                    todayCal.set(Calendar.MINUTE, 0)
+                    todayCal.set(Calendar.SECOND, 0)
+                    todayCal.set(Calendar.MILLISECOND, 0)
+                    val todayStart = todayCal.timeInMillis
+
                     val notifications = database.notificationDao().getNotificationsByRange(startTime, endTime)
                     val appStats = notifications
                         .groupBy { it.packageName }
@@ -140,10 +293,14 @@ class DashboardViewModel(application: Application) : AndroidViewModel(applicatio
                                 packageName
                             }
                             
+                            // Contar notificaciones de hoy para esta aplicación
+                            val todayNotifications = notifs.count { it.timestamp >= todayStart }
+                            
                             AppNotificationStats(
                                 packageName = packageName,
                                 appName = appName,
                                 notificationCount = notifs.size,
+                                todayNotificationCount = todayNotifications,
                                 lastNotificationTime = notifs.maxOfOrNull { it.timestamp } ?: 0L
                             )
                         }
@@ -197,5 +354,6 @@ data class AppNotificationStats(
     val packageName: String,
     val appName: String?,
     val notificationCount: Int,
+    val todayNotificationCount: Int,
     val lastNotificationTime: Long
 )

@@ -63,6 +63,14 @@ class AppStatsAdapter(
             binding.textPackageName.text = appStats.packageName
             binding.textNotificationCount.text = appStats.notificationCount.toString()
 
+            // Configurar el texto de "hoy" en lugar del texto estático "notificaciones"
+            val todayText = if (appStats.todayNotificationCount > 0) {
+                "${appStats.todayNotificationCount} hoy"
+            } else {
+                "0 hoy"
+            }
+            binding.textTodayCount.text = todayText
+
             // Verificar si la aplicación está ignorada
             val context = binding.root.context
             val prefs = context.getSharedPreferences("app_prefs", Context.MODE_PRIVATE)
@@ -76,6 +84,7 @@ class AppStatsAdapter(
                 binding.textAppName.setTextColor(ContextCompat.getColor(context, R.color.colorTextSecondary))
                 binding.textPackageName.setTextColor(ContextCompat.getColor(context, R.color.colorTextSecondary))
                 binding.textNotificationCount.setTextColor(ContextCompat.getColor(context, R.color.colorTextSecondary))
+                binding.textTodayCount.setTextColor(ContextCompat.getColor(context, R.color.colorTextSecondary))
                 binding.imageAppIcon.alpha = 0.6f
             } else {
                 // Restaurar estilo normal
@@ -84,6 +93,7 @@ class AppStatsAdapter(
                 binding.textAppName.setTextColor(ContextCompat.getColor(context, R.color.colorTextPrimary))
                 binding.textPackageName.setTextColor(ContextCompat.getColor(context, R.color.colorTextSecondary))
                 binding.textNotificationCount.setTextColor(ContextCompat.getColor(context, R.color.colorTextPrimary))
+                binding.textTodayCount.setTextColor(ContextCompat.getColor(context, R.color.colorTextSecondary))
                 binding.imageAppIcon.alpha = 1.0f
             }
 

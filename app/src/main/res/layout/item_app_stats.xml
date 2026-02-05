@@ -67,11 +67,12 @@
                 tools:text="1,234" />
 
             <TextView
+                android:id="@+id/textTodayCount"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="notificaciones"
                 android:textSize="12sp"
-                android:textColor="@android:color/darker_gray" />
+                android:textColor="@android:color/darker_gray"
+                tools:text="5 hoy" />
         </LinearLayout>
     </LinearLayout>
 </androidx.cardview.widget.CardView>
