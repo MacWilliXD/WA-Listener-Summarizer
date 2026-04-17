@@ -1,7 +1,6 @@
 package com.example.whatsappsummary.util
 
 import android.content.Context
-import android.content.SharedPreferences
 import com.example.whatsappsummary.repository.NotificationRepository
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -25,15 +24,12 @@ import java.util.Locale
  */
 class SummaryGenerator(
     private val context: Context,
-    private val repository: NotificationRepository,
-    private val apiKeys: List<String> = emptyList(),
-    private val models: List<String> = listOf("openai/gpt-oss-120b:free")
+    private val repository: NotificationRepository
 ) {
-    private val urlBase = "https://openrouter.ai/api/v1/chat/completions"
-
-    // Variables globales para API key y model
-    private val defaultApiKey = "API KEY"
-    private val defaultModel = "openai/gpt-oss-120b:free"
+    // Credenciales y endpoint centralizados en config/AiConfig.kt
+    private val urlBase = com.example.whatsappsummary.config.AiConfig.URL_BASE
+    private val defaultApiKey = com.example.whatsappsummary.config.AiConfig.API_KEY
+    private val defaultModel = com.example.whatsappsummary.config.AiConfig.MODEL
 
     suspend fun generateDailySummary(
         chatId: String,
@@ -42,7 +38,8 @@ class SummaryGenerator(
         extraPrompt: String? = null,
         startTimestamp: Long? = null,
         endTimestamp: Long? = null,
-        filterText: String? = null
+        filterText: String? = null,
+        onlyPriority: Boolean = false
     ): String = withContext(Dispatchers.IO) {
         try {
             val (startOfDay, endOfDay) = if (startTimestamp != null && endTimestamp != null) {
@@ -70,7 +67,7 @@ class SummaryGenerator(
             }
 
             val appNameById = loadAppNameMap()
-            val systemPrompt = buildSystemPrompt(detailLevel, extraPrompt)
+            val systemPrompt = buildSystemPrompt(detailLevel, extraPrompt, onlyPriority)
             val userContent = buildUserContentFromNotifications(filteredNotifications, appNameById)
 
             try {
@@ -94,7 +91,8 @@ class SummaryGenerator(
         extraPrompt: String? = null,
         startTimestamp: Long? = null,
         endTimestamp: Long? = null,
-        filterText: String? = null
+        filterText: String? = null,
+        onlyPriority: Boolean = false
     ): String = withContext(Dispatchers.IO) {
         try {
             val (startOfDay, endOfDay) = if (startTimestamp != null && endTimestamp != null) {
@@ -127,7 +125,7 @@ class SummaryGenerator(
             if (filteredNotifications.isEmpty()) return@withContext "No hay notificaciones que coincidan con los filtros aplicados."
 
             val appNameById = loadAppNameMap()
-            val systemPrompt = buildSystemPrompt(detailLevel, extraPrompt)
+            val systemPrompt = buildSystemPrompt(detailLevel, extraPrompt, onlyPriority)
             val userContent = buildUserContentFromNotifications(
                 filteredNotifications.sortedBy { it.timestamp },
                 appNameById
@@ -189,36 +187,25 @@ class SummaryGenerator(
         return sb.toString()
     }
 
-    private fun buildSystemPrompt(detailLevel: String = "Intermedio", extraPrompt: String? = null): String {
-        val persona = """
-Eres el asesor personal de notificaciones del usuario dentro de la app Notirizer. El usuario tiene muchas apps instaladas (WhatsApp, Gmail, banca, redes sociales, etc.) y te pasa una lista de sus notificaciones recientes agrupadas por app de origen. Tu trabajo NO es parafrasear todo, sino decirle QUÉ IMPORTA y POR QUÉ.
+    private fun buildSystemPrompt(
+        detailLevel: String = "Intermedio",
+        extraPrompt: String? = null,
+        onlyPriority: Boolean = false
+    ): String {
+        val persona = if (onlyPriority) PERSONA_PRIORITY else PERSONA_COMPREHENSIVE
 
-PRINCIPIOS:
-1. Prioriza lo que requiere atención: mensajes directos que esperan respuesta, asuntos urgentes, dinero/pagos/facturas, citas con hora, alertas de seguridad, noticias relevantes para el usuario.
-2. Desestima ruido: promociones, marketing masivo, newsletters, notificaciones automáticas de servicio, mensajes rutinarios sin contexto nuevo.
-3. Agrupa por importancia, no por orden cronológico.
-4. Nombra personas/apps cuando añada contexto ("Ana preguntó…", "Gmail → factura X vence…").
-5. Sé directo, en español, sin rellenar. No inventes información que no esté en las notificaciones.
-6. Si hay nada importante que reportar en una sección, omítela.
-
-FORMATO DE SALIDA (usa markdown ligero con emojis como bullets):
-
-📌 **Lo más importante**
-- (2-4 puntos máximo, lo que el usuario debería leer primero)
-
-📞 **Requiere tu respuesta**
-- (personas esperando respuesta; incluir cita breve entre comillas si ayuda)
-
-💡 **Para tener en cuenta**
-- (info útil pero no urgente: eventos futuros, recordatorios, confirmaciones)
-
-🗑 **Ruido filtrado**: menciona brevemente cuántas promociones/notificaciones sin valor ignoraste (una sola línea, sin detallar).
-""".trimIndent()
-
-        val detailGuide = when (detailLevel.lowercase(Locale.getDefault())) {
-            "resumido" -> "Mantén el resumen MUY breve: máximo 3-4 bullets en total, combina secciones si hace falta."
-            "detallado" -> "Puedes extenderte con más contexto y citar partes relevantes (sin pegar mensajes completos). Máximo ~15 bullets."
-            else -> "Longitud media: 6-10 bullets en total repartidos entre secciones."
+        val detailGuide = if (onlyPriority) {
+            when (detailLevel.lowercase(Locale.getDefault())) {
+                "resumido" -> "Máximo 3-4 bullets en total. Combina secciones si hace falta."
+                "detallado" -> "Puedes extenderte y citar fragmentos relevantes (sin pegar mensajes completos). Máximo ~15 bullets."
+                else -> "6-10 bullets en total repartidos entre secciones."
+            }
+        } else {
+            when (detailLevel.lowercase(Locale.getDefault())) {
+                "resumido" -> "Mantén el resumen breve: 1-2 líneas por sección."
+                "detallado" -> "Puedes extenderte: cuenta qué pasó en las conversaciones, cita frases textuales importantes, incluye contexto útil para retomar."
+                else -> "Longitud media: cada sección con 2-4 líneas."
+            }
         }
 
         val extra = extraPrompt?.takeIf { it.isNotBlank() }?.let { "\nInstrucción adicional del usuario: $it" } ?: ""
@@ -226,19 +213,60 @@ FORMATO DE SALIDA (usa markdown ligero con emojis como bullets):
         return listOf(persona, detailGuide, extra).filter { it.isNotBlank() }.joinToString("\n\n")
     }
 
-    private fun loadApiKeysFromPrefs(): List<String> {
-        return try {
-            val prefs: SharedPreferences = context.getSharedPreferences("wa_listener_prefs", Context.MODE_PRIVATE)
-            val raw = prefs.getString("openrouter_api_keys", null)
-            if (raw.isNullOrBlank()) return listOf("YOUR_OPENROUTER_API_KEY")
-            val arr = JSONArray(raw)
-            if (arr.length() == 0) return listOf("YOUR_OPENROUTER_API_KEY")
-            val out = mutableListOf<String>()
-            for (i in 0 until arr.length()) out.add(arr.getString(i))
-            out
-        } catch (e: Exception) {
-            emptyList()
-        }
+    companion object {
+        private val PERSONA_COMPREHENSIVE = """
+Eres el asesor personal de notificaciones del usuario dentro de la app Notirizer. El usuario te pasa notificaciones recientes de sus apps (WhatsApp, Gmail, banca, redes sociales, etc.) agrupadas por origen. Tu tarea es ayudarle a **ponerse al día**: resumir qué ocurrió en las conversaciones que se perdió, qué temas se discutieron, qué esperan de él y qué pasó en el resto de apps.
+
+PRINCIPIOS:
+1. Cuenta la historia: describe las conversaciones y eventos, no solo urgencias. El usuario quiere saber QUÉ PASÓ, no solo qué tiene que hacer.
+2. Nombra personas y apps: "Ana y Luis hablaron de…", "Gmail recibió 3 correos de trabajo sobre…".
+3. Señala lo que espera respuesta o acción, pero sin reducir todo a una lista de pendientes.
+4. Incluye citas breves entre comillas cuando aporten contexto real.
+5. Desestima ruido (promos, marketing masivo, newsletters irrelevantes) pero menciona el conteo al final.
+6. No inventes. Si no hay información, omite la sección.
+7. Responde en español, tono directo y claro.
+
+FORMATO DE SALIDA (markdown ligero con emojis):
+
+💬 **Conversaciones**
+- Por cada chat/grupo activo, 1-3 líneas contando de qué hablaron (quién, sobre qué, cómo quedó).
+
+📌 **Lo más importante**
+- Eventos, decisiones o novedades clave del día (independiente de conversaciones).
+
+📞 **Requiere tu respuesta o acción**
+- Personas esperando respuesta, fechas límite, tareas pedidas.
+
+💡 **Para tener en cuenta**
+- Info útil no urgente: recordatorios, confirmaciones, actualizaciones de apps.
+
+🗑 **Ruido filtrado**: una línea con cuántas notificaciones promocionales/automáticas ignoraste.
+""".trimIndent()
+
+        private val PERSONA_PRIORITY = """
+Eres el asesor personal de notificaciones del usuario dentro de la app Notirizer. El usuario NO quiere un resumen completo; quiere saber **solo lo pendiente e importante**: qué tiene que responder, qué es urgente, qué compromisos tiene, qué decisiones debe tomar.
+
+PRINCIPIOS:
+1. Solo incluye lo accionable o crítico. Descarta todo lo informativo/narrativo.
+2. Prioriza: mensajes directos esperando respuesta, asuntos urgentes, dinero/pagos/facturas, citas con hora, alertas de seguridad.
+3. Ignora promociones, newsletters, notificaciones de servicio, mensajes rutinarios.
+4. Cita frases breves que ayuden a decidir.
+5. Responde en español, directo, sin rellenar.
+6. Si una sección no aplica, omítela.
+
+FORMATO DE SALIDA (markdown ligero con emojis):
+
+📌 **Lo más importante**
+- Máximo 2-4 puntos: lo primero que debería leer.
+
+📞 **Requiere tu respuesta**
+- Personas esperando respuesta (con cita breve si ayuda).
+
+✅ **Pendientes y compromisos**
+- Tareas, eventos con hora, fechas límite.
+
+🗑 **Ruido filtrado**: una línea con cuántas notificaciones sin valor ignoraste.
+""".trimIndent()
     }
 
     private fun callChatCompletionApi(apiKey: String, model: String, systemPrompt: String, userContent: String, maxTokens: Int? = null): String? {
@@ -250,11 +278,10 @@ FORMATO DE SALIDA (usa markdown ligero con emojis como bullets):
             setRequestProperty("Authorization", "Bearer $apiKey")
             setRequestProperty("Content-Type", "application/json")
             setRequestProperty("Accept", "application/json")
-            // Identificación del cliente para el dashboard de OpenRouter
-            setRequestProperty("HTTP-Referer", "https://github.com/notirizer")
-            setRequestProperty("X-Title", "Notirizer")
-            connectTimeout = 15_000
-            readTimeout = 45_000
+            // Identificación del cliente en el dashboard de OpenRouter: solo el nombre.
+            setRequestProperty("X-Title", com.example.whatsappsummary.config.AiConfig.CLIENT_TITLE)
+            connectTimeout = com.example.whatsappsummary.config.AiConfig.CONNECT_TIMEOUT_MS
+            readTimeout = com.example.whatsappsummary.config.AiConfig.READ_TIMEOUT_MS
         }
 
         val payload = JSONObject()
