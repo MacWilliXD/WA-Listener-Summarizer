@@ -15,7 +15,7 @@
         android:orientation="vertical"
         android:paddingBottom="32dp">
 
-        <!-- Hero (flat pastel) con stats integrado -->
+        <!-- Hero con stats integrado -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
@@ -23,7 +23,7 @@
             android:background="@drawable/bg_hero"
             android:paddingStart="20dp"
             android:paddingEnd="20dp"
-            android:paddingTop="24dp"
+            android:paddingTop="32dp"
             android:paddingBottom="24dp">
 
             <LinearLayout
@@ -67,20 +67,8 @@
                     app:tint="@color/colorPrimaryVariant"
                     android:contentDescription="Recargar dashboard" />
 
-                <ImageButton
-                    android:id="@+id/buttonViewChats"
-                    android:layout_width="44dp"
-                    android:layout_height="44dp"
-                    android:layout_marginStart="8dp"
-                    android:background="@drawable/bg_action_translucent"
-                    android:src="@drawable/ic_list"
-                    android:scaleType="center"
-                    app:tint="@color/colorPrimaryVariant"
-                    android:contentDescription="Ver lista de chats" />
-
             </LinearLayout>
 
-            <!-- Stats pill: blanca dentro del hero, mismo patrón que MainActivity -->
             <com.google.android.material.card.MaterialCardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -278,7 +266,6 @@
                 android:orientation="vertical"
                 android:padding="16dp">
 
-                <!-- Filters row (compact) -->
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"

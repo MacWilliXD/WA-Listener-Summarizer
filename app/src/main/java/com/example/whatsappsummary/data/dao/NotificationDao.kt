@@ -34,6 +34,20 @@ interface NotificationDao {
     @Query("SELECT COUNT(*) FROM notifications WHERE chat_id = :chatId AND text = :text AND timestamp BETWEEN :since AND :now")
     suspend fun countExactNotification(chatId: String, text: String, since: Long, now: Long): Int
 
+    /**
+     * Cuenta notificaciones con el mismo texto (case-insensitive) en la misma app
+     * dentro de la ventana [since, now]. Usado para dedup cross-chat cuando una
+     * misma notificación se reparte en varios chats por parsing de título (p.ej.
+     * WhatsApp en grupos: una con "Grupo: Sender" y otra con solo "Sender").
+     */
+    @Query("""
+        SELECT COUNT(*) FROM notifications
+        WHERE app_id = :appId
+          AND LOWER(text) = LOWER(:text)
+          AND timestamp BETWEEN :since AND :now
+    """)
+    suspend fun countSameTextInAppRecent(appId: Long, text: String, since: Long, now: Long): Int
+
     @Query("""
         SELECT COUNT(*) FROM notifications 
         WHERE chat_id = :chatId AND text = :text 

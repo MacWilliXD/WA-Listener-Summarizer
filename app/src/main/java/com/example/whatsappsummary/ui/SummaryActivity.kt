@@ -30,6 +30,7 @@ class SummaryActivity : AppCompatActivity() {
     private var lastSummary: String = ""
 
     private val chatIds by lazy { intent.getStringArrayExtra(EXTRA_CHAT_IDS)?.toList().orEmpty() }
+    private val loadAllChats by lazy { intent.getBooleanExtra(EXTRA_ALL_CHATS, false) }
     private val summaryLength by lazy { intent.getIntExtra(EXTRA_LENGTH, -1).takeIf { it > 0 } }
     private val detailLevel by lazy { intent.getStringExtra(EXTRA_DETAIL) ?: "Intermedio" }
     private val extraPrompt by lazy { intent.getStringExtra(EXTRA_EXTRA_PROMPT) }
@@ -38,6 +39,7 @@ class SummaryActivity : AppCompatActivity() {
     private val filterText by lazy { intent.getStringExtra(EXTRA_FILTER_TEXT) }
     private val titleText by lazy { intent.getStringExtra(EXTRA_TITLE) ?: "Resumen" }
     private val subtitleText by lazy { intent.getStringExtra(EXTRA_SUBTITLE).orEmpty() }
+    private val onlyPriority by lazy { intent.getBooleanExtra(EXTRA_ONLY_PRIORITY, false) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -63,11 +65,7 @@ class SummaryActivity : AppCompatActivity() {
         binding.buttonCopy.setOnClickListener { copyToClipboard() }
         binding.buttonShare.setOnClickListener { shareSummary() }
 
-        if (chatIds.isEmpty()) {
-            showError("No hay chats para resumir.")
-        } else {
-            startGeneration()
-        }
+        startGeneration()
     }
 
     private fun startGeneration() {
@@ -79,16 +77,28 @@ class SummaryActivity : AppCompatActivity() {
             )
             val generator = SummaryGenerator(application, repo)
 
+            // Si se pidió "todos los chats" (desde notificación programada), resolverlos aquí
+            val effectiveChatIds: List<String> = if (loadAllChats) {
+                withContext(Dispatchers.IO) { repo.getAllChatsList().map { it.chatId } }
+            } else {
+                chatIds
+            }
+            if (effectiveChatIds.isEmpty()) {
+                showError("No hay chats para resumir.")
+                return@launch
+            }
+
             val result = runCatching {
                 withContext(Dispatchers.IO) {
                     generator.generateSummaryForChats(
-                        chatIds,
+                        effectiveChatIds,
                         summaryLength,
                         detailLevel,
                         extraPrompt,
                         filterStartTs,
                         filterEndTs,
-                        filterText
+                        filterText,
+                        onlyPriority
                     )
                 }
             }
@@ -147,15 +157,17 @@ class SummaryActivity : AppCompatActivity() {
     }
 
     companion object {
-        private const val EXTRA_CHAT_IDS = "extra_chat_ids"
-        private const val EXTRA_LENGTH = "extra_length"
-        private const val EXTRA_DETAIL = "extra_detail"
-        private const val EXTRA_EXTRA_PROMPT = "extra_extra_prompt"
-        private const val EXTRA_START_TS = "extra_start_ts"
-        private const val EXTRA_END_TS = "extra_end_ts"
-        private const val EXTRA_FILTER_TEXT = "extra_filter_text"
-        private const val EXTRA_TITLE = "extra_title"
-        private const val EXTRA_SUBTITLE = "extra_subtitle"
+        const val EXTRA_CHAT_IDS = "extra_chat_ids"
+        const val EXTRA_ALL_CHATS = "extra_all_chats"
+        const val EXTRA_LENGTH = "extra_length"
+        const val EXTRA_DETAIL = "extra_detail"
+        const val EXTRA_EXTRA_PROMPT = "extra_extra_prompt"
+        const val EXTRA_START_TS = "extra_start_ts"
+        const val EXTRA_END_TS = "extra_end_ts"
+        const val EXTRA_FILTER_TEXT = "extra_filter_text"
+        const val EXTRA_TITLE = "extra_title"
+        const val EXTRA_SUBTITLE = "extra_subtitle"
+        const val EXTRA_ONLY_PRIORITY = "extra_only_priority"
 
         fun newIntent(
             context: Context,
@@ -167,7 +179,8 @@ class SummaryActivity : AppCompatActivity() {
             extraPrompt: String? = null,
             startTs: Long? = null,
             endTs: Long? = null,
-            filterText: String? = null
+            filterText: String? = null,
+            onlyPriority: Boolean = false
         ): Intent = Intent(context, SummaryActivity::class.java).apply {
             putExtra(EXTRA_CHAT_IDS, chatIds.toTypedArray())
             putExtra(EXTRA_TITLE, title)
@@ -178,6 +191,7 @@ class SummaryActivity : AppCompatActivity() {
             if (startTs != null) putExtra(EXTRA_START_TS, startTs)
             if (endTs != null) putExtra(EXTRA_END_TS, endTs)
             if (filterText != null) putExtra(EXTRA_FILTER_TEXT, filterText)
+            if (onlyPriority) putExtra(EXTRA_ONLY_PRIORITY, true)
         }
     }
 }

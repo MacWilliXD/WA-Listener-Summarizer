@@ -21,50 +21,32 @@
             android:background="@drawable/bg_hero"
             android:paddingStart="20dp"
             android:paddingEnd="20dp"
-            android:paddingTop="24dp"
+            android:paddingTop="32dp"
             android:paddingBottom="24dp">
 
             <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:gravity="center_vertical">
+                android:orientation="vertical">
 
-                <LinearLayout
-                    android:layout_width="0dp"
+                <TextView
+                    android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:orientation="vertical">
+                    android:text="Notirizer"
+                    android:textColor="@color/colorOnPrimaryContainer"
+                    android:textSize="26sp"
+                    android:textStyle="bold"
+                    android:letterSpacing="-0.01" />
 
-                    <TextView
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:text="Notirizer"
-                        android:textColor="@color/colorOnPrimaryContainer"
-                        android:textSize="26sp"
-                        android:textStyle="bold"
-                        android:letterSpacing="-0.01" />
-
-                    <TextView
-                        android:id="@+id/textHeroSubtitle"
-                        android:layout_width="wrap_content"
-                        android:layout_height="wrap_content"
-                        android:layout_marginTop="4dp"
-                        android:text="Tus conversaciones, resumidas"
-                        android:textColor="@color/colorOnPrimaryContainer"
-                        android:alpha="0.75"
-                        android:textSize="13sp" />
-                </LinearLayout>
-
-                <ImageButton
-                    android:id="@+id/buttonOpenDashboard"
-                    android:layout_width="44dp"
-                    android:layout_height="44dp"
-                    android:background="@drawable/bg_action_translucent"
-                    android:src="@drawable/ic_dashboard"
-                    android:scaleType="center"
-                    app:tint="@color/colorPrimaryVariant"
-                    android:contentDescription="Dashboard" />
+                <TextView
+                    android:id="@+id/textHeroSubtitle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:text="Tus conversaciones, resumidas"
+                    android:textColor="@color/colorOnPrimaryContainer"
+                    android:alpha="0.75"
+                    android:textSize="13sp" />
 
             </LinearLayout>
 

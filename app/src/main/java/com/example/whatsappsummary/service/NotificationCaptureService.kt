@@ -220,6 +220,9 @@ class NotificationCaptureService : NotificationListenerService() {
         val contentSig = "$chatId|${sender.lowercase(Locale.getDefault())}|${messageText.lowercase(Locale.getDefault())}"
         if (isRecentDuplicate(contentSig, DEDUP_WINDOW_MS)) return
         if (existsSameTextRecent(chatId, messageText)) return
+        // Cross-chat: WhatsApp puede enviar el mismo mensaje con dos títulos distintos
+        // dejándolo en chats diferentes. Descartamos el segundo.
+        if (existsSameTextInAppRecent(appId, messageText)) return
 
         getOrCreateChat(chatId, chatName, appId, isGroup = isGroupFromText || title.contains(":"))
 
@@ -258,6 +261,7 @@ class NotificationCaptureService : NotificationListenerService() {
         val contentSig = "$chatId|${messageText.lowercase(Locale.getDefault())}"
         if (isRecentDuplicate(contentSig, DEDUP_WINDOW_MS)) return
         if (existsSameTextRecent(chatId, messageText)) return
+        if (existsSameTextInAppRecent(appId, messageText)) return
 
         getOrCreateChat(chatId, chatName, appId, isGroup = false)
 
@@ -348,6 +352,26 @@ class NotificationCaptureService : NotificationListenerService() {
         val since = now - 10 * 60 * 1000L
         return try {
             database.notificationDao().countExactNotification(chatId, text, since, now) > 0
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    /**
+     * Dedup cross-chat: misma app, mismo texto, ventana corta. Evita el caso típico
+     * de WhatsApp en grupos donde un mismo mensaje llega dos veces con títulos
+     * distintos ("Grupo: Sender" vs solo "Sender") y queda guardado en dos chatIds.
+     */
+    private suspend fun existsSameTextInAppRecent(
+        appId: Long,
+        text: String,
+        windowMs: Long = 3 * 60 * 1000L
+    ): Boolean {
+        if (text.isBlank()) return false
+        val now = System.currentTimeMillis()
+        val since = now - windowMs
+        return try {
+            database.notificationDao().countSameTextInAppRecent(appId, text, since, now) > 0
         } catch (_: Exception) {
             false
         }

@@ -6,6 +6,8 @@
     <uses-permission android:name="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" />
     <!-- Permiso para acceso a red -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Publicar notificaciones propias (recordatorios de resumen). Runtime en Android 13+ -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
     <application
         android:name=".WhatsAppSummaryApplication"
@@ -19,9 +21,9 @@
         android:theme="@style/Theme.Notirizer"
         tools:targetApi="31">
 
-        <!-- Dashboard (pantalla principal) -->
+        <!-- Pantalla principal (ViewPager con Chats + Dashboard) -->
         <activity
-            android:name=".ui.DashboardActivity"
+            android:name=".ui.HostActivity"
             android:exported="true"
             android:label="@string/app_name"
             android:theme="@style/Theme.Notirizer.NoActionBar">
@@ -30,13 +32,6 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-
-        <!-- Actividad principal (lista de chats) -->
-        <activity
-            android:name=".ui.MainActivity"
-            android:exported="false"
-            android:label="Chats"
-            android:theme="@style/Theme.Notirizer.NoActionBar" />
 
         <!-- Vista de notificaciones por aplicación -->
         <activity
@@ -49,14 +44,14 @@
         <activity
             android:name=".ui.ChatDetailActivity"
             android:exported="false"
-            android:parentActivityName=".ui.MainActivity"
+            android:parentActivityName=".ui.HostActivity"
             android:theme="@style/Theme.Notirizer.NoActionBar" />
 
         <!-- Vista de resumen (cargando + resultado + error) -->
         <activity
             android:name=".ui.SummaryActivity"
             android:exported="false"
-            android:parentActivityName=".ui.MainActivity"
+            android:parentActivityName=".ui.HostActivity"
             android:theme="@style/Theme.Notirizer.NoActionBar" />
 
         <!-- Servicio de captura de notificaciones del dispositivo -->

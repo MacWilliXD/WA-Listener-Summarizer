@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/colorBackground">
+
+    <androidx.viewpager2.widget.ViewPager2
+        android:id="@+id/viewPager"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent" />
+
+    <!-- Indicador de página: dos puntos. Tocar cambia de página. -->
+    <com.google.android.material.tabs.TabLayout
+        android:id="@+id/pageIndicator"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="top|center_horizontal"
+        android:layout_marginTop="10dp"
+        android:background="@android:color/transparent"
+        app:tabBackground="@drawable/page_indicator_dot"
+        app:tabGravity="center"
+        app:tabIndicator="@null"
+        app:tabIndicatorHeight="0dp"
+        app:tabPaddingStart="6dp"
+        app:tabPaddingEnd="6dp"
+        app:tabPaddingTop="0dp"
+        app:tabPaddingBottom="0dp"
+        app:tabMinWidth="20dp"
+        app:tabRippleColor="@android:color/transparent" />
+
+</FrameLayout>

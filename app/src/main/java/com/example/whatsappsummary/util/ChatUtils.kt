@@ -11,24 +11,28 @@ object ChatUtils {
      */
     fun normalizeChatTitle(raw: String): String {
         var s = raw.trim()
-        // Sufijos entre paréntesis: (3), (3 mensajes), (99+), (unread), etc.
+        // Contadores entre paréntesis en cualquier posición: (3), (3 mensajes), (99+), (unread), etc.
         s = s.replace(
             Regex(
-                "\\s*\\(\\s*\\d+\\+?\\s*(mensajes?\\s*nuevos?|mensajes?|msgs?|unread(?:_messages)?|new(?:\\s+messages?)?)?\\s*\\)\\s*$",
+                "\\s*\\(\\s*\\d+\\+?\\s*(mensajes?\\s*nuevos?|mensajes?|msgs?|unread(?:_messages)?|new(?:\\s+messages?)?)?\\s*\\)",
                 RegexOption.IGNORE_CASE
             ),
             ""
         )
-        // Sufijos tipo " - 7" o " · 7"
+        // Sufijos tipo " - 7" o " · 7" al final
         s = s.replace(Regex("\\s*[-·—]\\s*\\d+\\+?\\s*$"), "")
-        // Sufijos tipo " | 3 mensajes nuevos"
+        // Sufijos tipo " | 3 mensajes nuevos" en cualquier posición
         s = s.replace(
             Regex(
-                "\\s*\\|\\s*\\d+\\s*(mensajes?\\s*nuevos?|new\\s+messages?|mensajes?|msgs?|unread)\\s*$",
+                "\\s*\\|\\s*\\d+\\s*(mensajes?\\s*nuevos?|new\\s+messages?|mensajes?|msgs?|unread)",
                 RegexOption.IGNORE_CASE
             ),
             ""
         )
+        // Limpieza de puntuación residual si quedó colgando: "Nombre : …"  →  "Nombre: …"
+        s = s.replace(Regex("\\s+:"), ":")
+        // Colapsar espacios duplicados
+        s = s.replace(Regex("\\s{2,}"), " ")
         return s.trim()
     }
 
