@@ -104,3 +104,6 @@ junit-platform.properties
 
 # C++
 .cxx/
+
+# Credenciales de IA: archivo trackeado en el repo, cambios locales ignorados vía `git update-index --skip-worktree`.
+app/src/main/java/com/example/whatsappsummary/config/AiConfig.kt
