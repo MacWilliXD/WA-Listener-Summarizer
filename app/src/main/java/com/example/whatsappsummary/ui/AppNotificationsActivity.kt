@@ -61,10 +61,10 @@ class AppNotificationsActivity : AppCompatActivity() {
             adapter.submitList(notifications)
 
             if (notifications.isEmpty()) {
-                binding.textEmpty.visibility = android.view.View.VISIBLE
+                binding.emptyContainer.visibility = android.view.View.VISIBLE
                 binding.recyclerNotifications.visibility = android.view.View.GONE
             } else {
-                binding.textEmpty.visibility = android.view.View.GONE
+                binding.emptyContainer.visibility = android.view.View.GONE
                 binding.recyclerNotifications.visibility = android.view.View.VISIBLE
             }
         }

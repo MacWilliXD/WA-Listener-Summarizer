@@ -78,7 +78,21 @@ interface NotificationDao {
     
     @Query("SELECT COALESCE(MAX(timestamp), 0) FROM notifications WHERE chat_id = :chatId")
     suspend fun getLastMessageTimeForChat(chatId: String): Long
-    
+
+    @Query("SELECT text FROM notifications WHERE chat_id = :chatId ORDER BY timestamp DESC LIMIT 1")
+    suspend fun getLastMessageTextForChat(chatId: String): String?
+
     @Query("SELECT * FROM notifications ORDER BY timestamp DESC")
     fun getAllNotificationsLive(): LiveData<List<Notification>>
+
+    // ---- Limpieza ----
+
+    @Query("DELETE FROM notifications WHERE text LIKE '(Notificaci%n autom%tica)%'")
+    suspend fun deleteAutoPlaceholderRows(): Int
+
+    @Query("""
+        UPDATE notifications SET chat_id = :newChatId
+        WHERE chat_id IN (SELECT chatId FROM chats WHERE appId = :appId AND chatId != :newChatId)
+    """)
+    suspend fun reassignNotificationsToBucket(appId: Long, newChatId: String)
 }

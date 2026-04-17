@@ -25,7 +25,6 @@ import com.github.mikephil.charting.formatter.IndexAxisValueFormatter
 import com.github.mikephil.charting.listener.OnChartValueSelectedListener
 import com.github.mikephil.charting.listener.ChartTouchListener
 import com.github.mikephil.charting.listener.OnChartGestureListener
-import com.github.mikephil.charting.utils.ColorTemplate
 import com.github.mikephil.charting.highlight.Highlight
 import com.github.mikephil.charting.formatter.IValueFormatter
 import com.github.mikephil.charting.utils.ViewPortHandler
@@ -51,6 +50,21 @@ class DashboardActivity : AppCompatActivity() {
     private var appNameToPackageMap: MutableMap<String, String> = mutableMapOf() // mapa nombre -> package
     private var packageToAppNameMap: MutableMap<String, String> = mutableMapOf() // mapa package -> nombre
     private var selectedGranularity: String = "day" // granularidad por defecto: día
+    private var currentDailyData: List<Triple<String, Long, Int>> = emptyList()
+    private var currentPieTotal: Int = 0
+
+    private val pastelChartColors: List<Int> by lazy {
+        listOf(
+            androidx.core.content.ContextCompat.getColor(this, com.example.whatsappsummary.R.color.chart_1),
+            androidx.core.content.ContextCompat.getColor(this, com.example.whatsappsummary.R.color.chart_2),
+            androidx.core.content.ContextCompat.getColor(this, com.example.whatsappsummary.R.color.chart_3),
+            androidx.core.content.ContextCompat.getColor(this, com.example.whatsappsummary.R.color.chart_4),
+            androidx.core.content.ContextCompat.getColor(this, com.example.whatsappsummary.R.color.chart_5),
+            androidx.core.content.ContextCompat.getColor(this, com.example.whatsappsummary.R.color.chart_6),
+            androidx.core.content.ContextCompat.getColor(this, com.example.whatsappsummary.R.color.chart_7),
+            androidx.core.content.ContextCompat.getColor(this, com.example.whatsappsummary.R.color.chart_8)
+        )
+    }
 
     // Función para formatear números grandes con sufijos
     private fun formatLargeNumber(value: Float): String {
@@ -127,34 +141,47 @@ class DashboardActivity : AppCompatActivity() {
     }
 
     private fun setupCharts() {
+        val axisTextColor = androidx.core.content.ContextCompat.getColor(this, com.example.whatsappsummary.R.color.colorTextSecondary)
+        val gridColorVal = androidx.core.content.ContextCompat.getColor(this, com.example.whatsappsummary.R.color.colorDivider)
+        val axisLineCol = androidx.core.content.ContextCompat.getColor(this, com.example.whatsappsummary.R.color.colorOutline)
+
         // Configurar PieChart
         binding.pieChart.apply {
             description.isEnabled = false
             isRotationEnabled = true
-            setDrawEntryLabels(false) // Deshabilitar etiquetas en el gráfico
-            legend.isEnabled = false // Deshabilitar leyenda
-            setExtraOffsets(5f, 5f, 5f, 5f) // Márgenes uniformes
+            setDrawEntryLabels(false)
+            legend.isEnabled = false
+            setExtraOffsets(12f, 12f, 12f, 12f)
             setDrawCenterText(false)
             isDrawHoleEnabled = true
             setHoleColor(Color.TRANSPARENT)
-            holeRadius = 40f
-            transparentCircleRadius = 45f
+            holeRadius = 44f
+            transparentCircleRadius = 48f
             setTouchEnabled(true)
             isHighlightPerTapEnabled = true
-            
-            // Listener para mostrar el nombre al presionar
+
+            // Tooltip personalizado con clamp a los bordes del chart
+            val pieMarker = com.example.whatsappsummary.ui.chart.ChartMarkerView(this@DashboardActivity) { entry, _ ->
+                val pie = entry as? PieEntry
+                val name = pie?.label?.takeIf { it.isNotBlank() } ?: "Sin nombre"
+                val count = formatFullNumber(pie?.value ?: 0f)
+                val percentage = if (currentPieTotal > 0 && pie != null) {
+                    val p = (pie.value / currentPieTotal * 100).toInt()
+                    "$p% del total"
+                } else null
+                com.example.whatsappsummary.ui.chart.ChartMarkerView.MarkerContent(
+                    title = name,
+                    value = "$count notificaciones",
+                    hint = percentage
+                )
+            }
+            pieMarker.chartView = binding.pieChart
+            marker = pieMarker
+
+            // Listener: no hace falta Toast, solo no-op para mantener la API
             setOnChartValueSelectedListener(object : OnChartValueSelectedListener {
-                override fun onValueSelected(e: com.github.mikephil.charting.data.Entry?, h: Highlight?) {
-                    if (e is PieEntry) {
-                        val appName = e.label ?: "Desconocido"
-                        val fullValue = formatFullNumber(e.value)
-                        Toast.makeText(this@DashboardActivity, "$appName: $fullValue notificaciones", Toast.LENGTH_SHORT).show()
-                    }
-                }
-                
-                override fun onNothingSelected() {
-                    // No hacer nada
-                }
+                override fun onValueSelected(e: com.github.mikephil.charting.data.Entry?, h: Highlight?) {}
+                override fun onNothingSelected() {}
             })
         }
 
@@ -164,38 +191,65 @@ class DashboardActivity : AppCompatActivity() {
             setTouchEnabled(true)
             setDrawGridBackground(false)
             isDragEnabled = true
-            setScaleEnabled(true) // Habilitar zoom inteligente
-            setPinchZoom(true) // Habilitar pinch zoom
-            legend.isEnabled = false // Deshabilitar leyenda para diseño más limpio
+            setScaleEnabled(true)
+            setPinchZoom(true)
+            legend.isEnabled = false
 
-            // Configurar eje X
+            // Tooltip personalizado (pastel, coherente con la app) con clamp a los bordes
+            val lineMarker = com.example.whatsappsummary.ui.chart.ChartMarkerView(this@DashboardActivity) { entry, _ ->
+                val idx = entry?.x?.toInt() ?: 0
+                if (idx in currentDailyData.indices) {
+                    val (label, _, count) = currentDailyData[idx]
+                    val pct = if (idx > 0) {
+                        val prev = currentDailyData[idx - 1].third
+                        if (prev > 0) {
+                            val change = count - prev
+                            val percentage = (change.toFloat() / prev.toFloat() * 100).toInt()
+                            when {
+                                percentage > 0 -> "▲ +$percentage% vs anterior"
+                                percentage < 0 -> "▼ $percentage% vs anterior"
+                                else -> "Sin cambio"
+                            }
+                        } else null
+                    } else null
+                    com.example.whatsappsummary.ui.chart.ChartMarkerView.MarkerContent(
+                        title = label,
+                        value = "${formatFullNumber(count.toFloat())} notificaciones",
+                        hint = pct
+                    )
+                } else {
+                    com.example.whatsappsummary.ui.chart.ChartMarkerView.MarkerContent("—", "", null)
+                }
+            }
+            lineMarker.chartView = binding.lineChart
+            marker = lineMarker
+
             xAxis.apply {
                 position = XAxis.XAxisPosition.BOTTOM
                 setDrawGridLines(true)
-                gridColor = Color.parseColor("#E0E0E0")
+                gridColor = gridColorVal
                 gridLineWidth = 1f
-                textColor = Color.parseColor("#666666")
+                textColor = axisTextColor
                 textSize = 11f
                 setDrawAxisLine(true)
-                axisLineColor = Color.parseColor("#CCCCCC")
+                axisLineColor = axisLineCol
                 axisLineWidth = 1f
                 granularity = 1f
                 labelRotationAngle = -45f
                 setAvoidFirstLastClipping(true)
             }
 
-            // Configurar eje Y izquierdo
             axisLeft.apply {
                 setDrawGridLines(true)
-                gridColor = Color.parseColor("#E0E0E0")
+                gridColor = gridColorVal
                 gridLineWidth = 1f
-                textColor = Color.parseColor("#666666")
+                textColor = axisTextColor
                 textSize = 11f
                 setDrawAxisLine(true)
-                axisLineColor = Color.parseColor("#CCCCCC")
+                axisLineColor = axisLineCol
                 axisLineWidth = 1f
                 setDrawZeroLine(true)
-                zeroLineColor = Color.parseColor("#999999")
+                zeroLineColor = axisLineCol
                 zeroLineWidth = 1f
                 axisMinimum = 0f
             }
@@ -460,11 +514,12 @@ class DashboardActivity : AppCompatActivity() {
         }
 
         val totalCount = entries.sumOf { it.value.toInt() }
-        
+        currentPieTotal = totalCount
+
         val dataSet = PieDataSet(entries, "").apply {
-            colors = ColorTemplate.MATERIAL_COLORS.toList()
+            colors = pastelChartColors
             valueTextSize = 10f
-            valueTextColor = Color.WHITE
+            valueTextColor = androidx.core.content.ContextCompat.getColor(this@DashboardActivity, com.example.whatsappsummary.R.color.colorOnPrimaryContainer)
             sliceSpace = 2f
             valueFormatter = object : IValueFormatter {
                 override fun getFormattedValue(value: Float, entry: com.github.mikephil.charting.data.Entry?, dataSetIndex: Int, viewPortHandler: ViewPortHandler?): String {
@@ -484,6 +539,7 @@ class DashboardActivity : AppCompatActivity() {
     }
 
     private fun setupLineChart(dailyData: List<Triple<String, Long, Int>>) {
+        currentDailyData = dailyData
         if (dailyData.isEmpty()) {
             binding.lineChart.clear()
             return
@@ -493,26 +549,26 @@ class DashboardActivity : AppCompatActivity() {
             Entry(index.toFloat(), count.toFloat())
         }
 
+        val primaryColor = androidx.core.content.ContextCompat.getColor(this, com.example.whatsappsummary.R.color.colorPrimary)
+        val primaryDeep = androidx.core.content.ContextCompat.getColor(this, com.example.whatsappsummary.R.color.colorPrimaryVariant)
+        val accentColor = androidx.core.content.ContextCompat.getColor(this, com.example.whatsappsummary.R.color.colorSecondary)
+
         val dataSet = LineDataSet(entries, "").apply {
-            // Colores y estilo de línea
-            color = Color.parseColor("#3F51B5") // Azul material design
-            lineWidth = 3f
+            color = primaryColor
+            lineWidth = 2.5f
             setDrawCircles(true)
-            setCircleColor(Color.parseColor("#3F51B5"))
-            circleRadius = 5f
+            setCircleColor(primaryColor)
+            circleRadius = 4.5f
             setDrawCircleHole(true)
-            // circleHoleColor = Color.WHITE  // Default is already white
             circleHoleRadius = 2.5f
 
-            // Área bajo la línea
             setDrawFilled(true)
-            fillColor = Color.parseColor("#3F51B5")
-            fillAlpha = 30
+            fillColor = primaryColor
+            fillAlpha = 40
 
-            // Valores
             setDrawValues(true)
             valueTextSize = 10f
-            valueTextColor = Color.parseColor("#3F51B5")
+            valueTextColor = primaryDeep
             valueFormatter = object : IValueFormatter {
                 override fun getFormattedValue(value: Float, entry: com.github.mikephil.charting.data.Entry?, dataSetIndex: Int, viewPortHandler: ViewPortHandler?): String {
                     val currentValue = value.toInt()
@@ -548,8 +604,8 @@ class DashboardActivity : AppCompatActivity() {
             cubicIntensity = 0.2f
 
             // Resaltar puntos
-            highLightColor = Color.parseColor("#FF9800")
-            highlightLineWidth = 2f
+            highLightColor = accentColor
+            highlightLineWidth = 1.5f
             setDrawHorizontalHighlightIndicator(false)
             setDrawVerticalHighlightIndicator(true)
         }
@@ -559,47 +615,14 @@ class DashboardActivity : AppCompatActivity() {
             this.data = data
             xAxis.valueFormatter = IndexAxisValueFormatter(dailyData.map { it.first })
 
-            // Listener para mostrar información al tocar
+            // MarkerView ya maneja el tooltip; listener no-op para preservar contrato.
             setOnChartValueSelectedListener(object : OnChartValueSelectedListener {
-                override fun onValueSelected(e: com.github.mikephil.charting.data.Entry?, h: Highlight?) {
-                    if (e != null && e.x.toInt() < dailyData.size) {
-                        val dataPoint = dailyData[e.x.toInt()]
-                        val hour = dataPoint.first // etiqueta
-                        val count = dataPoint.third // valor
-                        val fullValue = formatFullNumber(count.toFloat())
-                        
-                        // Calcular cambio porcentual respecto al valor anterior
-                        val index = e.x.toInt()
-                        val percentageText = if (index > 0 && index < dailyData.size) {
-                            val previousValue = dailyData[index - 1].third
-                            if (previousValue > 0) {
-                                val change = count - previousValue
-                                val percentage = (change.toFloat() / previousValue.toFloat() * 100).toInt()
-                                if (percentage > 0) {
-                                    " ▲+${percentage}%"
-                                } else if (percentage < 0) {
-                                    " ▼${percentage}%"
-                                } else {
-                                    " ▬0%"
-                                }
-                            } else {
-                                " ▲+${count}%" // Si el anterior era 0, mostrar el valor actual como aumento
-                            }
-                        } else {
-                            "" // No mostrar porcentaje para el primer punto
-                        }
-                        
-                        Toast.makeText(this@DashboardActivity, "$hour: $fullValue$percentageText", Toast.LENGTH_SHORT).show()
-                    }
-                }
-
-                override fun onNothingSelected() {
-                    // No hacer nada
-                }
+                override fun onValueSelected(e: com.github.mikephil.charting.data.Entry?, h: Highlight?) {}
+                override fun onNothingSelected() {}
             })
 
             // Animación suave
-            animateXY(1500, 1500)
+            animateXY(1200, 1200)
         }
     }
 

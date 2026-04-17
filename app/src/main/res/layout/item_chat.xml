@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical">
@@ -11,83 +12,100 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:visibility="gone"
-        android:gravity="center_vertical"
-        android:paddingStart="8dp"
-        android:paddingEnd="8dp" />
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        tools:text="Hoy"
+        tools:visibility="visible" />
 
     <com.google.android.material.card.MaterialCardView
         style="@style/Widget.App.Card"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
+        android:layout_height="wrap_content"
+        android:layout_marginStart="4dp"
+        android:layout_marginEnd="4dp"
+        android:layout_marginTop="6dp"
+        android:layout_marginBottom="2dp">
 
         <androidx.constraintlayout.widget.ConstraintLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:padding="12dp">
+            android:padding="14dp">
 
-            <ImageView
-                android:id="@+id/imageViewAppIcon"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:layout_marginEnd="12dp"
-                android:contentDescription="App icon"
+            <androidx.cardview.widget.CardView
+                android:id="@+id/iconContainer"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                app:cardCornerRadius="14dp"
+                app:cardElevation="0dp"
+                app:cardBackgroundColor="@color/colorSurfaceVariant"
                 app:layout_constraintStart_toStartOf="parent"
-                app:layout_constraintTop_toTopOf="parent"
-                app:layout_constraintBottom_toBottomOf="parent" />
+                app:layout_constraintTop_toTopOf="parent">
+
+                <ImageView
+                    android:id="@+id/imageViewAppIcon"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:padding="8dp"
+                    android:contentDescription="App icon"
+                    tools:src="@mipmap/ic_launcher" />
+            </androidx.cardview.widget.CardView>
 
             <TextView
                 android:id="@+id/textViewChatName"
+                style="@style/TextAppearance.App.Title"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
-                android:text="Contact Name"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:layout_marginStart="8dp"
-                android:textColor="@color/colorTextPrimary"
+                android:ellipsize="end"
+                android:maxLines="1"
+                android:layout_marginStart="14dp"
                 app:layout_constraintEnd_toStartOf="@+id/textViewTime"
-                app:layout_constraintStart_toEndOf="@+id/imageViewAppIcon"
-                app:layout_constraintTop_toTopOf="parent" />
+                app:layout_constraintStart_toEndOf="@+id/iconContainer"
+                app:layout_constraintTop_toTopOf="@+id/iconContainer"
+                tools:text="Nombre del contacto" />
 
             <TextView
                 android:id="@+id/textViewTime"
+                style="@style/TextAppearance.App.Caption"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="12:30"
-                android:textSize="12sp"
-                android:textColor="@color/colorTextSecondary"
                 app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintTop_toTopOf="parent" />
+                app:layout_constraintTop_toTopOf="@+id/iconContainer"
+                tools:text="12:30" />
 
             <TextView
                 android:id="@+id/textViewLastMessage"
+                style="@style/TextAppearance.App.Secondary"
                 android:layout_width="0dp"
                 android:layout_height="wrap_content"
+                android:layout_marginStart="14dp"
                 android:layout_marginTop="4dp"
-                android:layout_marginStart="8dp"
-                android:text="Last message text..."
-                android:textSize="14sp"
-                android:maxLines="2"
                 android:ellipsize="end"
-                android:textColor="@color/colorTextSecondary"
+                android:maxLines="2"
                 app:layout_constraintEnd_toStartOf="@+id/textViewUnreadCount"
-                app:layout_constraintStart_toEndOf="@+id/imageViewAppIcon"
-                app:layout_constraintTop_toBottomOf="@+id/textViewChatName" />
+                app:layout_constraintStart_toEndOf="@+id/iconContainer"
+                app:layout_constraintTop_toBottomOf="@+id/textViewChatName"
+                tools:text="Último mensaje de ejemplo mostrado aquí." />
 
             <TextView
                 android:id="@+id/textViewUnreadCount"
-                android:layout_width="24dp"
-                android:layout_height="24dp"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:minWidth="22dp"
+                android:minHeight="22dp"
+                android:paddingStart="7dp"
+                android:paddingEnd="7dp"
                 android:layout_marginStart="8dp"
                 android:background="@drawable/unread_badge_background"
                 android:gravity="center"
-                android:text="5"
-                android:textColor="@android:color/white"
-                android:textSize="12sp"
+                android:textColor="@color/colorOnPrimary"
+                android:textSize="11sp"
                 android:textStyle="bold"
                 android:visibility="gone"
                 app:layout_constraintBottom_toBottomOf="@+id/textViewLastMessage"
                 app:layout_constraintEnd_toEndOf="parent"
-                app:layout_constraintTop_toTopOf="@+id/textViewLastMessage" />
+                app:layout_constraintTop_toTopOf="@+id/textViewLastMessage"
+                tools:text="5"
+                tools:visibility="visible" />
 
         </androidx.constraintlayout.widget.ConstraintLayout>
 

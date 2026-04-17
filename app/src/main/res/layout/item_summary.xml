@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical">
@@ -11,75 +12,99 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:visibility="gone"
-        android:gravity="center_vertical"
-        android:paddingStart="8dp"
-        android:paddingEnd="8dp" />
+        android:paddingStart="12dp"
+        android:paddingEnd="12dp"
+        tools:visibility="visible"
+        tools:text="Esta semana" />
 
     <com.google.android.material.card.MaterialCardView
         style="@style/Widget.App.Card"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content">
-
-    <LinearLayout
-        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="12dp">
+        android:layout_marginStart="4dp"
+        android:layout_marginEnd="4dp"
+        android:layout_marginTop="6dp"
+        android:layout_marginBottom="2dp">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:orientation="horizontal">
+            android:orientation="vertical"
+            android:padding="16dp">
 
-            <TextView
-                android:id="@+id/textViewDate"
-                android:layout_width="0dp"
+            <LinearLayout
+                android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_weight="1"
-                android:text="2025-01-29"
-                android:textSize="16sp"
-                android:textStyle="bold"
-                android:textColor="@android:color/black" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
 
-            <TextView
-                android:id="@+id/textViewType"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Manual"
-                android:textSize="12sp"
-                android:paddingEnd="8dp"
-                android:textColor="@android:color/holo_blue_dark" />
+                <ImageView
+                    android:layout_width="32dp"
+                    android:layout_height="32dp"
+                    android:padding="7dp"
+                    android:background="@drawable/bg_icon_circle"
+                    android:src="@drawable/ic_sparkle"
+                    app:tint="@color/colorPrimary"
+                    android:contentDescription="" />
+
+                <TextView
+                    android:id="@+id/textViewDate"
+                    style="@style/TextAppearance.App.Title"
+                    android:layout_width="0dp"
+                    android:layout_height="wrap_content"
+                    android:layout_marginStart="10dp"
+                    android:layout_weight="1"
+                    tools:text="2026-04-17" />
+
+                <TextView
+                    android:id="@+id/textViewType"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:background="@drawable/bg_chip_manual"
+                    android:textSize="11sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/brand_emerald_900"
+                    android:textAllCaps="true"
+                    android:letterSpacing="0.05"
+                    tools:text="Manual" />
+
+            </LinearLayout>
 
             <TextView
                 android:id="@+id/textViewMessageCount"
+                style="@style/TextAppearance.App.Caption"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="10 mensajes"
-                android:textSize="14sp"
-                android:textColor="@android:color/darker_gray" />
+                android:layout_marginTop="8dp"
+                android:paddingStart="42dp"
+                tools:text="10 mensajes" />
+
+            <TextView
+                android:id="@+id/textViewSummary"
+                style="@style/TextAppearance.App.Body"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="12dp"
+                android:ellipsize="end"
+                android:maxLines="4"
+                android:lineSpacingExtra="2dp"
+                tools:text="Contenido del resumen generado..." />
+
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/buttonExpand"
+                style="@style/Widget.App.ButtonText"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_gravity="end"
+                android:layout_marginTop="4dp"
+                android:minHeight="0dp"
+                android:paddingStart="10dp"
+                android:paddingEnd="10dp"
+                android:paddingTop="6dp"
+                android:paddingBottom="6dp"
+                android:text="Ver más" />
 
         </LinearLayout>
-
-        <TextView
-            android:id="@+id/textViewSummary"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Summary text..."
-            android:textSize="14sp"
-            android:ellipsize="end"
-            android:maxLines="3"
-            android:textColor="@android:color/black" />
-
-        <Button
-            android:id="@+id/buttonExpand"
-            style="@style/Widget.App.ButtonText"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:layout_gravity="end"
-            android:text="Ver más" />
-
-    </LinearLayout>
 
     </com.google.android.material.card.MaterialCardView>
 

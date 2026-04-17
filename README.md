@@ -78,7 +78,7 @@ Editar esas variables:
 Ejemplo:
 
 - `val key = "sk-or-..."`
-- `val model = "arcee-ai/trinity-large-preview:free"`
+- `val model = "openai/gpt-oss-120b:free"`
 
 Reemplaza `key` por tu API key y `model` por el identificador del modelo que prefieras. Mantén estas claves privadas y evita subirlas a repositorios públicos.
 

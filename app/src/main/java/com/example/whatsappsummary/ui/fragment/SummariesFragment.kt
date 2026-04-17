@@ -66,10 +66,10 @@ class SummariesFragment : Fragment() {
             }
 
             if (summaries.isEmpty()) {
-                binding.textViewEmpty.visibility = View.VISIBLE
+                binding.emptyContainer.visibility = View.VISIBLE
                 binding.recyclerViewSummaries.visibility = View.GONE
             } else {
-                binding.textViewEmpty.visibility = View.GONE
+                binding.emptyContainer.visibility = View.GONE
                 binding.recyclerViewSummaries.visibility = View.VISIBLE
             }
         }

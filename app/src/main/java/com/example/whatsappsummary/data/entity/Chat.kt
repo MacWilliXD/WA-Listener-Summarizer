@@ -26,14 +26,21 @@ data class Chat(
     val unreadCount: Int = 0         // Cantidad de mensajes no leídos
 )
 
-// Clase auxiliar para combinar Chat con lastMessageTime desde las notificaciones
+// Clase auxiliar para combinar Chat con lastMessageTime, último mensaje y metadata de app
 data class ChatWithLastMessage(
     val chat: Chat,
-    val lastMessageTime: Long = 0L  // timestamp del último mensaje
+    val lastMessageTime: Long = 0L,
+    val lastMessagePreview: String = "",
+    val packageName: String = "",
+    val appName: String = "",
+    val isSocial: Boolean = false
 ) {
     val chatId: String get() = chat.chatId
     val chatName: String get() = chat.chatName
     val appId: Long get() = chat.appId
     val isGroup: Boolean get() = chat.isGroup
     val unreadCount: Int get() = chat.unreadCount
+
+    /** "app:<pkg>" → agrupación por app, no por chat. */
+    val isAppBucket: Boolean get() = chat.chatId.startsWith("app:")
 }

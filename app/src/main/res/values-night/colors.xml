@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="colorPrimary">#A3C9A8</color>
+    <color name="colorPrimaryVariant">#7FB091</color>
+    <color name="colorPrimaryContainer">#2E4A39</color>
+    <color name="colorOnPrimary">#0F2416</color>
+    <color name="colorOnPrimaryContainer">#D5E5D9</color>
+
+    <color name="colorSecondary">#D9B3A1</color>
+    <color name="colorSecondaryVariant">#BD8E78</color>
+    <color name="colorSecondaryContainer">#4A3529</color>
+    <color name="colorOnSecondary">#2B1A12</color>
+
+    <color name="colorTertiary">#A3BDCF</color>
+    <color name="colorTertiaryContainer">#354852</color>
+
+    <color name="colorBackground">#161A17</color>
+    <color name="colorSurface">#1E2520</color>
+    <color name="colorSurfaceVariant">#27302A</color>
+    <color name="colorSurfaceElevated">#27302A</color>
+
+    <color name="colorOnBackground">#E6EBE7</color>
+    <color name="colorOnSurface">#E6EBE7</color>
+    <color name="colorOnSurfaceVariant">#BCC5BE</color>
+
+    <color name="colorTextPrimary">#E6EBE7</color>
+    <color name="colorTextSecondary">#BCC5BE</color>
+    <color name="colorTextTertiary">#7A847E</color>
+
+    <color name="colorCardBackground">#1E2520</color>
+    <color name="colorDivider">#2C3630</color>
+    <color name="colorOutline">#3A463F</color>
+
+    <color name="accent_urgent">#D9B3A1</color>
+    <color name="accent_error">#D17A7A</color>
+    <color name="accent_success">#A3C9A8</color>
+    <color name="accent_info">#A3BDCF</color>
+
+    <color name="chart_1">#A3C9A8</color>
+    <color name="chart_2">#D9B3A1</color>
+    <color name="chart_3">#A3BDCF</color>
+    <color name="chart_4">#C5B7D1</color>
+    <color name="chart_5">#D9C292</color>
+    <color name="chart_6">#B7D3BE</color>
+    <color name="chart_7">#B3998C</color>
+    <color name="chart_8">#9CB3A2</color>
+</resources>

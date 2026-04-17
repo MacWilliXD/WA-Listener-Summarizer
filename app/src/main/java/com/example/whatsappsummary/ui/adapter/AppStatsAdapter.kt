@@ -92,7 +92,7 @@ class AppStatsAdapter(
             if (isIgnored) {
                 // Aplicar estilo completo de ignorado a toda la card
                 binding.root.alpha = 0.7f
-                binding.root.setCardBackgroundColor(ContextCompat.getColor(context, android.R.color.background_light))
+                binding.root.setCardBackgroundColor(ContextCompat.getColor(context, R.color.colorSurfaceVariant))
                 binding.textAppName.setTextColor(ContextCompat.getColor(context, R.color.colorTextSecondary))
                 binding.textPackageName.setTextColor(ContextCompat.getColor(context, R.color.colorTextSecondary))
                 binding.textNotificationCount.setTextColor(ContextCompat.getColor(context, R.color.colorTextSecondary))
@@ -101,7 +101,7 @@ class AppStatsAdapter(
             } else {
                 // Restaurar estilo normal
                 binding.root.alpha = 1.0f
-                binding.root.setCardBackgroundColor(ContextCompat.getColor(context, android.R.color.white))
+                binding.root.setCardBackgroundColor(ContextCompat.getColor(context, R.color.colorSurface))
                 binding.textAppName.setTextColor(ContextCompat.getColor(context, R.color.colorTextPrimary))
                 binding.textPackageName.setTextColor(ContextCompat.getColor(context, R.color.colorTextSecondary))
                 binding.textNotificationCount.setTextColor(ContextCompat.getColor(context, R.color.colorTextPrimary))

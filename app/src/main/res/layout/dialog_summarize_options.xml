@@ -1,29 +1,66 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:padding="8dp">
 
-    <EditText
-        android:id="@+id/editSummaryLength"
+    <TextView
+        style="@style/TextAppearance.App.Label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Largo máximo" />
+
+    <com.google.android.material.textfield.TextInputLayout
+        style="@style/Widget.App.TextInputLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Largo (tokens, opcional)"
-        android:inputType="number" />
+        android:layout_marginTop="4dp"
+        android:hint="Tokens (opcional)">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/editSummaryLength"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="number" />
+
+    </com.google.android.material.textfield.TextInputLayout>
+
+    <TextView
+        style="@style/TextAppearance.App.Label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="Nivel de detalle" />
 
     <Spinner
         android:id="@+id/spinnerDetailLevel"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginTop="8dp" />
+        android:layout_marginTop="4dp"
+        android:background="@drawable/bg_field" />
 
-    <EditText
-        android:id="@+id/editExtraPrompt"
+    <TextView
+        style="@style/TextAppearance.App.Label"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
+        android:text="Instrucción adicional" />
+
+    <com.google.android.material.textfield.TextInputLayout
+        style="@style/Widget.App.TextInputLayout"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:hint="Instrucción adicional (opcional)"
-        android:inputType="text"
-        android:layout_marginTop="8dp" />
+        android:layout_marginTop="4dp"
+        android:hint="Opcional">
+
+        <com.google.android.material.textfield.TextInputEditText
+            android:id="@+id/editExtraPrompt"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="text" />
+
+    </com.google.android.material.textfield.TextInputLayout>
 
 </LinearLayout>

@@ -1,60 +1,79 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.cardview.widget.CardView
+<com.google.android.material.card.MaterialCardView
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     xmlns:tools="http://schemas.android.com/tools"
+    style="@style/Widget.App.Card"
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
-    android:layout_margin="4dp"
-    app:cardCornerRadius="8dp"
-    app:cardElevation="2dp">
+    android:layout_marginStart="4dp"
+    android:layout_marginEnd="4dp"
+    android:layout_marginTop="4dp"
+    android:layout_marginBottom="4dp">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="12dp">
+        android:padding="14dp">
 
-        <!-- Título de la notificación -->
-        <TextView
-            android:id="@+id/textTitle"
-            android:layout_width="wrap_content"
+        <LinearLayout
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textSize="16sp"
-            android:textStyle="bold"
-            android:textColor="@android:color/black"
-            tools:text="Nuevo mensaje" />
+            android:orientation="horizontal"
+            android:gravity="center_vertical">
 
-        <!-- Contenido de la notificación -->
+            <ImageView
+                android:layout_width="28dp"
+                android:layout_height="28dp"
+                android:padding="6dp"
+                android:background="@drawable/bg_icon_circle"
+                android:src="@drawable/ic_bell"
+                app:tint="@color/colorPrimary"
+                android:contentDescription="" />
+
+            <TextView
+                android:id="@+id/textTitle"
+                style="@style/TextAppearance.App.Title"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="10dp"
+                android:ellipsize="end"
+                android:maxLines="1"
+                tools:text="Nuevo mensaje" />
+
+            <TextView
+                android:id="@+id/textTimestamp"
+                style="@style/TextAppearance.App.Caption"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginStart="8dp"
+                tools:text="14:30" />
+        </LinearLayout>
+
         <TextView
             android:id="@+id/textContent"
-            android:layout_width="wrap_content"
+            style="@style/TextAppearance.App.Body"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textSize="14sp"
-            android:textColor="@android:color/black"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="8dp"
             tools:text="Hola, ¿cómo estás?" />
 
-        <!-- ID del chat (si existe) -->
         <TextView
             android:id="@+id/textChatId"
+            style="@style/TextAppearance.App.Caption"
             android:layout_width="wrap_content"
             android:layout_height="wrap_content"
-            android:textSize="12sp"
-            android:textColor="@android:color/darker_gray"
-            android:layout_marginTop="4dp"
+            android:layout_marginTop="8dp"
+            android:paddingStart="10dp"
+            android:paddingEnd="10dp"
+            android:paddingTop="4dp"
+            android:paddingBottom="4dp"
+            android:background="@drawable/bg_chip_surface"
             android:visibility="gone"
             tools:text="Chat: chat123"
             tools:visibility="visible" />
 
-        <!-- Timestamp -->
-        <TextView
-            android:id="@+id/textTimestamp"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:textSize="12sp"
-            android:textColor="@android:color/darker_gray"
-            android:layout_marginTop="4dp"
-            tools:text="15/01/2024 14:30" />
     </LinearLayout>
-</androidx.cardview.widget.CardView>
+</com.google.android.material.card.MaterialCardView>

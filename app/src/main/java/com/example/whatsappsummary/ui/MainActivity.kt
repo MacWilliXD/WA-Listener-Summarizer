@@ -69,11 +69,70 @@ class MainActivity : AppCompatActivity() {
         setupRecyclerView()
         setupObservers()
         setupFab()
-        setupToolbar()
         setupFilterFab()
         setupSummarizeFab()
-        
+        setupHeader()
+
         checkNotificationPermission()
+        autoCleanupOnceIfNeeded()
+    }
+
+    /**
+     * Ejecuta la limpieza (placeholders + unificación de chats no sociales + huérfanos)
+     * una vez por día. El timestamp de la última limpieza vive en SharedPreferences.
+     */
+    private fun autoCleanupOnceIfNeeded() {
+        val prefs = getSharedPreferences("wa_listener_prefs", MODE_PRIVATE)
+        val lastCleanup = prefs.getLong("last_cleanup_ts", 0L)
+        val now = System.currentTimeMillis()
+        if (now - lastCleanup < 24 * 60 * 60 * 1000L) return  // cada 24h
+
+        lifecycleScope.launch {
+            val db = com.example.whatsappsummary.data.AppDatabase.getDatabase(applicationContext)
+            val repo = com.example.whatsappsummary.repository.NotificationRepository(
+                db.appDao(), db.chatDao(), db.notificationDao(), db.dailySummaryDao()
+            )
+            withContext(Dispatchers.IO) {
+                runCatching { repo.cleanupGarbage() }
+            }
+            prefs.edit().putLong("last_cleanup_ts", now).apply()
+        }
+    }
+
+    private fun setupHeader() {
+        binding.buttonOpenDashboard.setOnClickListener {
+            startActivity(Intent(this, DashboardActivity::class.java))
+        }
+
+        val filterAppNameFromIntent = intent.getStringExtra("FILTER_APP_NAME")
+        if (filterAppNameFromIntent != null) {
+            binding.textHeroSubtitle.text = "Filtrado por: $filterAppNameFromIntent"
+        }
+    }
+
+    private fun updateHeaderStats(chats: List<ChatWithLastMessage>) {
+        binding.textHeroChatCount.text = chats.size.toString()
+        val unread = chats.sumOf { it.unreadCount }
+        binding.textHeroUnread.text = unread.toString()
+        val now = java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, 0)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        val todayCount = chats.count { it.lastMessageTime >= now }
+        binding.textHeroToday.text = todayCount.toString()
+
+        val activeFilters = mutableListOf<String>()
+        if (filterPackage != null) activeFilters.add("app")
+        if (filterStartTs != null || filterEndTs != null) activeFilters.add("fecha")
+        if (!filterText.isNullOrBlank()) activeFilters.add("texto")
+        if (activeFilters.isEmpty()) {
+            binding.textFilterStatus.visibility = android.view.View.GONE
+        } else {
+            binding.textFilterStatus.visibility = android.view.View.VISIBLE
+            binding.textFilterStatus.text = "Filtros: ${activeFilters.joinToString(", ")}"
+        }
     }
 
     private fun setupViewModel() {
@@ -117,12 +176,14 @@ class MainActivity : AppCompatActivity() {
                 applyCurrentFilters()
             }
 
+            updateHeaderStats(chatsWithMessage)
+
             // Mostrar mensaje si no hay chats
             if (chatsWithMessage.isEmpty()) {
-                binding.textViewEmpty.visibility = android.view.View.VISIBLE
+                binding.emptyState.visibility = android.view.View.VISIBLE
                 binding.recyclerViewChats.visibility = android.view.View.GONE
             } else {
-                binding.textViewEmpty.visibility = android.view.View.GONE
+                binding.emptyState.visibility = android.view.View.GONE
                 binding.recyclerViewChats.visibility = android.view.View.VISIBLE
             }
         }
@@ -175,6 +236,7 @@ class MainActivity : AppCompatActivity() {
         }
         android.util.Log.d("FilterDebug", "Chats filtrados: ${filtered.size} de ${fullChats.size}")
         adapter.submitList(filtered)
+        updateHeaderStats(filtered)
     }
 
     private fun setupFab() {
@@ -218,66 +280,34 @@ class MainActivity : AppCompatActivity() {
             .setTitle("Opciones de resumen")
             .setView(optsView)
             .setPositiveButton("Generar") { _, _ ->
-                binding.fabSummarizeAll.isEnabled = false
-                
-                // Construir mensaje informativo de filtros activos
-                val filterParts = mutableListOf<String>()
-                if (filterPackage != null) filterParts.add("aplicación")
-                if (filterStartTs != null && filterEndTs != null) filterParts.add("rango de fechas")
-                if (!filterText.isNullOrBlank()) filterParts.add("búsqueda de texto")
-                
-                val filterMsg = if (filterParts.isEmpty()) {
-                    "Generando resumen general del día..."
-                } else {
-                    "Generando resumen con filtros: ${filterParts.joinToString(", ")}..."
-                }
-                
-                Toast.makeText(this, filterMsg, Toast.LENGTH_SHORT).show()
                 val length = editLength.text?.toString()?.trim()?.toIntOrNull()
                 val detail = spinner.selectedItem as? String ?: "Intermedio"
                 val extra = editExtra.text?.toString()?.takeIf { it.isNotBlank() }
 
-                lifecycleScope.launch {
-                    val db = com.example.whatsappsummary.data.AppDatabase.getDatabase(applicationContext)
-                    val repo = com.example.whatsappsummary.repository.NotificationRepository(db.appDao(), db.chatDao(), db.notificationDao(), db.dailySummaryDao())
-                    val generator = com.example.whatsappsummary.util.SummaryGenerator(application, repo)
-
-                    try {
-                        val chatIds = currentFilteredChats.map { it.chatId }
-                        val summary = withContext(Dispatchers.IO) { 
-                            generator.generateSummaryForChats(
-                                chatIds, 
-                                length, 
-                                detail, 
-                                extra,
-                                filterStartTs,
-                                filterEndTs,
-                                filterText
-                            ) 
-                        }
-
-                        // Mostrar en diálogo grande el resumen agregado
-                        val filterInfo = if (filterPackage != null || filterStartTs != null || filterEndTs != null || !filterText.isNullOrBlank()) {
-                            " (${currentFilteredChats.size} chats filtrados)"
-                        } else {
-                            " (todos los chats)"
-                        }
-                        val dialog = AlertDialog.Builder(this@MainActivity)
-                            .setTitle("Resumen general$filterInfo")
-                            .setMessage(summary)
-                            .setPositiveButton("Cerrar", null)
-                            .create()
-                        dialog.show()
-                    } catch (e: Exception) {
-                        AlertDialog.Builder(this@MainActivity)
-                            .setTitle("Error")
-                            .setMessage("No se pudo generar el resumen: ${e.message}")
-                            .setPositiveButton("Cerrar", null)
-                            .show()
-                    } finally {
-                        binding.fabSummarizeAll.isEnabled = true
-                    }
+                val chatIds = currentFilteredChats.map { it.chatId }
+                val hasFilters = filterPackage != null || filterStartTs != null ||
+                        filterEndTs != null || !filterText.isNullOrBlank()
+                val subtitle = buildString {
+                    append("${chatIds.size} chat${if (chatIds.size == 1) "" else "s"}")
+                    append(" · Nivel ")
+                    append(detail.lowercase())
+                    if (hasFilters) append(" · filtros aplicados")
                 }
+
+                startActivity(
+                    SummaryActivity.newIntent(
+                        context = this,
+                        chatIds = chatIds,
+                        title = "Resumen general",
+                        subtitle = subtitle,
+                        length = length,
+                        detail = detail,
+                        extraPrompt = extra,
+                        startTs = filterStartTs,
+                        endTs = filterEndTs,
+                        filterText = filterText
+                    )
+                )
             }
             .setNegativeButton("Cancelar", null)
             .show()
@@ -571,41 +601,4 @@ class MainActivity : AppCompatActivity() {
         filterPackage = filterPrefs.getString("filter_package", null)
     }
 
-    private fun setupToolbar() {
-        setSupportActionBar(binding.toolbar)
-        
-        // Cambiar el título si hay filtro de aplicación aplicado
-        val filterAppNameFromIntent = intent.getStringExtra("FILTER_APP_NAME")
-        if (filterAppNameFromIntent != null) {
-            supportActionBar?.title = filterAppNameFromIntent
-            supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        } else {
-            supportActionBar?.title = "Notificator Summary"
-            supportActionBar?.setDisplayHomeAsUpEnabled(false)
-        }
-    }
-
-    override fun onCreateOptionsMenu(menu: android.view.Menu): Boolean {
-        menuInflater.inflate(com.example.whatsappsummary.R.menu.menu_main, menu)
-        return true
-    }
-
-    override fun onOptionsItemSelected(item: android.view.MenuItem): Boolean {
-        when (item.itemId) {
-            android.R.id.home -> {
-                // Volver al dashboard
-                val intent = Intent(this, DashboardActivity::class.java)
-                intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_SINGLE_TOP
-                startActivity(intent)
-                finish()
-                return true
-            }
-            com.example.whatsappsummary.R.id.action_dashboard -> {
-                val intent = Intent(this, DashboardActivity::class.java)
-                startActivity(intent)
-                return true
-            }
-            else -> return super.onOptionsItemSelected(item)
-        }
-    }
 }

@@ -1,28 +1,100 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Pastel green palette -->
-    <color name="pastel_green_100">#F0FBF4</color>
-    <color name="pastel_green_300">#C6F6D5</color>
-    <color name="pastel_green_500">#8EE2A8</color>
-
-    <color name="pastel_mint">#DFFCF0</color>
-    <color name="pastel_teal_300">#B8F0E4</color>
-
+    <!-- Base -->
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
 
-    <!-- App tokens (pastel primary/secondary + neutrals) -->
-    <color name="colorPrimary">#8EE2A8</color>
-    <color name="colorPrimaryVariant">#C6F6D5</color>
-    <color name="colorSecondary">#B8F0E4</color>
-    <color name="colorSecondaryVariant">#DFFCF0</color>
+    <!-- Pastel palette "Sage & Clay" -->
+    <color name="sage_100">#EAF1EC</color>
+    <color name="sage_200">#D5E5D9</color>
+    <color name="sage_300">#B7D3BE</color>
+    <color name="sage_500">#8FB49A</color>
+    <color name="sage_700">#567A63</color>
+    <color name="sage_900">#344C3E</color>
 
-    <color name="colorBackground">#FFFFFF</color>
+    <color name="cream_50">#FAF8F2</color>
+    <color name="cream_100">#F4EFE3</color>
+    <color name="cream_200">#EBE4D3</color>
+    <color name="cream_300">#DCD2BA</color>
+
+    <color name="clay_100">#F3DFD4</color>
+    <color name="clay_300">#E8C5B3</color>
+    <color name="clay_500">#C89580</color>
+    <color name="clay_700">#8F5F4B</color>
+
+    <color name="sky_100">#E5ECF2</color>
+    <color name="sky_300">#C5D5E0</color>
+    <color name="sky_500">#8CA9BF</color>
+    <color name="sky_700">#54738B</color>
+
+    <color name="lilac_100">#EDE6F0</color>
+    <color name="lilac_300">#CBBFD6</color>
+    <color name="lilac_500">#9E8EB0</color>
+
+    <color name="ink_900">#2E3A34</color>
+    <color name="ink_700">#3F4C45</color>
+    <color name="ink_500">#5A685F</color>
+    <color name="ink_400">#8B9891</color>
+    <color name="ink_200">#C9BFAD</color>
+    <color name="ink_100">#E6DFD2</color>
+
+    <!-- Semantic tokens -->
+    <color name="colorPrimary">#8FB49A</color>
+    <color name="colorPrimaryVariant">#6B947A</color>
+    <color name="colorPrimaryContainer">#D5E5D9</color>
+    <color name="colorOnPrimary">#FFFFFF</color>
+    <color name="colorOnPrimaryContainer">#344C3E</color>
+
+    <color name="colorSecondary">#C89580</color>
+    <color name="colorSecondaryVariant">#A87863</color>
+    <color name="colorSecondaryContainer">#F3DFD4</color>
+    <color name="colorOnSecondary">#FFFFFF</color>
+
+    <color name="colorTertiary">#8CA9BF</color>
+    <color name="colorTertiaryContainer">#DCE5EC</color>
+
+    <color name="colorBackground">#FAF8F2</color>
     <color name="colorSurface">#FFFFFF</color>
-    <color name="colorOnPrimary">#FFFFFFFF</color>
-    <color name="colorOnBackground">#212121</color>
-    <color name="colorTextPrimary">#212121</color>
-    <color name="colorTextSecondary">#6B6B6B</color>
+    <color name="colorSurfaceVariant">#F0EADA</color>
+    <color name="colorSurfaceElevated">#FFFFFF</color>
+
+    <color name="colorOnBackground">#2E3A34</color>
+    <color name="colorOnSurface">#2E3A34</color>
+    <color name="colorOnSurfaceVariant">#5A685F</color>
+
+    <color name="colorTextPrimary">#2E3A34</color>
+    <color name="colorTextSecondary">#5A685F</color>
+    <color name="colorTextTertiary">#8B9891</color>
+
     <color name="colorCardBackground">#FFFFFF</color>
-    <color name="colorDivider">#EEF8F1</color>
+    <color name="colorDivider">#E6DFD2</color>
+    <color name="colorOutline">#C9BFAD</color>
+
+    <!-- Semantic accents (muted) -->
+    <color name="accent_urgent">#C89580</color>
+    <color name="accent_error">#B86B6B</color>
+    <color name="accent_success">#8FB49A</color>
+    <color name="accent_info">#8CA9BF</color>
+
+    <!-- Chart series (pastels ordenados para paletas) -->
+    <color name="chart_1">#8FB49A</color>
+    <color name="chart_2">#C89580</color>
+    <color name="chart_3">#8CA9BF</color>
+    <color name="chart_4">#CBBFD6</color>
+    <color name="chart_5">#D9C08F</color>
+    <color name="chart_6">#A3C9A8</color>
+    <color name="chart_7">#B99C8B</color>
+    <color name="chart_8">#B0C4B5</color>
+
+    <!-- Aliases legados (no usar en código nuevo) -->
+    <color name="brand_emerald_900">#344C3E</color>
+    <color name="brand_emerald_700">#567A63</color>
+    <color name="brand_emerald_500">#8FB49A</color>
+    <color name="brand_emerald_300">#B7D3BE</color>
+    <color name="brand_emerald_100">#D5E5D9</color>
+    <color name="brand_emerald_50">#EAF1EC</color>
+    <color name="brand_teal_500">#8CA9BF</color>
+    <color name="brand_teal_100">#DCE5EC</color>
+    <color name="brand_coral_500">#C89580</color>
+    <color name="brand_coral_100">#F3DFD4</color>
 </resources>

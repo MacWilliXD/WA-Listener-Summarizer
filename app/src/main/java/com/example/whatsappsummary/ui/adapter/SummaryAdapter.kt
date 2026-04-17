@@ -73,9 +73,19 @@ class SummaryAdapter(
             }
             try {
                 binding.textViewType.text = typeLabel
+                val ctx = binding.root.context
+                val isAuto = typeLabel == "Automático"
+                binding.textViewType.setBackgroundResource(
+                    if (isAuto) com.example.whatsappsummary.R.drawable.bg_chip_auto
+                    else com.example.whatsappsummary.R.drawable.bg_chip_manual
+                )
+                binding.textViewType.setTextColor(
+                    if (isAuto) android.graphics.Color.parseColor("#8A4F1C")
+                    else androidx.core.content.ContextCompat.getColor(ctx, com.example.whatsappsummary.R.color.brand_emerald_900)
+                )
             } catch (_: Exception) {}
             binding.textViewMessageCount.text = "${summary.messageCount} mensajes"
-            binding.textViewSummary.text = summary.summary
+            binding.textViewSummary.text = com.example.whatsappsummary.util.MarkdownFormatter.format(summary.summary)
             
             // Inicialmente colapsado
             binding.textViewSummary.maxLines = 3

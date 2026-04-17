@@ -32,10 +32,84 @@ class NotificationRepository(
     
     suspend fun getAllChatsWithLastMessage(): List<ChatWithLastMessage> {
         val allChats = chatDao.getAllChatsList()
+        val appsById = appDao.getAllApps().associateBy { it.id }
         return allChats.map { chat ->
-            val lastMessageTime = notificationDao.getLastMessageTimeForChat(chat.chatId)
-            ChatWithLastMessage(chat, lastMessageTime)
+            val lastTs = notificationDao.getLastMessageTimeForChat(chat.chatId)
+            val preview = notificationDao.getLastMessageTextForChat(chat.chatId).orEmpty()
+            val app = appsById[chat.appId]
+            val pkg = app?.packageName.orEmpty()
+            ChatWithLastMessage(
+                chat = chat,
+                lastMessageTime = lastTs,
+                lastMessagePreview = preview,
+                packageName = pkg,
+                appName = app?.appName.orEmpty(),
+                isSocial = com.example.whatsappsummary.util.SocialAppRegistry.isSocial(pkg)
+            )
         }
+    }
+
+    /**
+     * Limpieza: borra filas con textos placeholder legados, mergea los chats
+     * no-sociales de un mismo paquete en un único bucket "app:<pkg>", y elimina
+     * los chats huérfanos. Devuelve un informe simple.
+     */
+    suspend fun cleanupGarbage(): CleanupReport {
+        var deletedPlaceholders = 0
+        var mergedChats = 0
+        var deletedOrphans = 0
+
+        // 1) Borrar filas basura (guardadas antes del fix)
+        try {
+            deletedPlaceholders = notificationDao.deleteAutoPlaceholderRows()
+        } catch (_: Exception) { /* Room IGNORE returns void on some versions */ }
+
+        // 2) Para cada app NO social, fusionar todos sus chats en app:<pkg>
+        val apps = appDao.getAllApps()
+        for (app in apps) {
+            val pkg = app.packageName
+            if (com.example.whatsappsummary.util.SocialAppRegistry.isSocial(pkg)) continue
+
+            val bucketChatId = com.example.whatsappsummary.util.SocialAppRegistry.appBucketChatId(pkg)
+            val chats = chatDao.getChatsByAppId(app.id)
+            if (chats.isEmpty()) continue
+            // Si hay más de un chat, o el único no es el bucket, consolidamos
+            val needsMerge = chats.size > 1 || chats.any { it.chatId != bucketChatId }
+            if (!needsMerge) continue
+
+            // Crear/asegurar el bucket
+            if (chats.none { it.chatId == bucketChatId }) {
+                chatDao.insertChat(
+                    com.example.whatsappsummary.data.entity.Chat(
+                        chatId = bucketChatId,
+                        chatName = app.appName ?: app.packageName,
+                        appId = app.id,
+                        isGroup = false,
+                        unreadCount = 0
+                    )
+                )
+            }
+            // Reasignar notificaciones de todos los chats de la app al bucket
+            notificationDao.reassignNotificationsToBucket(app.id, bucketChatId)
+            // Borrar los chats viejos
+            chatDao.deleteOtherChatsForApp(app.id, bucketChatId)
+            mergedChats += chats.size - 1
+        }
+
+        // 3) Chats huérfanos (sin notificaciones) fuera
+        try {
+            deletedOrphans = chatDao.deleteOrphanChats()
+        } catch (_: Exception) { }
+
+        return CleanupReport(deletedPlaceholders, mergedChats, deletedOrphans)
+    }
+
+    data class CleanupReport(
+        val deletedPlaceholders: Int,
+        val mergedChats: Int,
+        val deletedOrphans: Int
+    ) {
+        val totalChanges: Int get() = deletedPlaceholders + mergedChats + deletedOrphans
     }
     
     suspend fun getChatById(chatId: String): Chat? = chatDao.getChatById(chatId)

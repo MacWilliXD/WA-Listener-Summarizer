@@ -52,6 +52,13 @@
             android:parentActivityName=".ui.MainActivity"
             android:theme="@style/Theme.Notirizer.NoActionBar" />
 
+        <!-- Vista de resumen (cargando + resultado + error) -->
+        <activity
+            android:name=".ui.SummaryActivity"
+            android:exported="false"
+            android:parentActivityName=".ui.MainActivity"
+            android:theme="@style/Theme.Notirizer.NoActionBar" />
+
         <!-- Servicio de captura de notificaciones del dispositivo -->
         <service
             android:name=".service.NotificationCaptureService"
