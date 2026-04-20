@@ -64,36 +64,56 @@ class NotificationRepository(
             deletedPlaceholders = notificationDao.deleteAutoPlaceholderRows()
         } catch (_: Exception) { /* Room IGNORE returns void on some versions */ }
 
-        // 2) Para cada app NO social, fusionar todos sus chats en app:<pkg>
         val apps = appDao.getAllApps()
+
+        // 2) Para cada app, consolidar.
         for (app in apps) {
             val pkg = app.packageName
-            if (com.example.whatsappsummary.util.SocialAppRegistry.isSocial(pkg)) continue
-
-            val bucketChatId = com.example.whatsappsummary.util.SocialAppRegistry.appBucketChatId(pkg)
             val chats = chatDao.getChatsByAppId(app.id)
             if (chats.isEmpty()) continue
-            // Si hay más de un chat, o el único no es el bucket, consolidamos
-            val needsMerge = chats.size > 1 || chats.any { it.chatId != bucketChatId }
-            if (!needsMerge) continue
 
-            // Crear/asegurar el bucket
-            if (chats.none { it.chatId == bucketChatId }) {
-                chatDao.insertChat(
-                    com.example.whatsappsummary.data.entity.Chat(
-                        chatId = bucketChatId,
-                        chatName = app.appName ?: app.packageName,
-                        appId = app.id,
-                        isGroup = false,
-                        unreadCount = 0
+            if (!com.example.whatsappsummary.util.SocialAppRegistry.isSocial(pkg)) {
+                // App NO social: un único chat "app:<pkg>" que acumula todo.
+                val bucketChatId = com.example.whatsappsummary.util.SocialAppRegistry.appBucketChatId(pkg)
+                val needsMerge = chats.size > 1 || chats.any { it.chatId != bucketChatId }
+                if (!needsMerge) continue
+
+                if (chats.none { it.chatId == bucketChatId }) {
+                    chatDao.insertChat(
+                        com.example.whatsappsummary.data.entity.Chat(
+                            chatId = bucketChatId,
+                            chatName = app.appName ?: app.packageName,
+                            appId = app.id,
+                            isGroup = false,
+                            unreadCount = 0
+                        )
                     )
-                )
+                }
+                notificationDao.reassignNotificationsToBucket(app.id, bucketChatId)
+                chatDao.deleteOtherChatsForApp(app.id, bucketChatId)
+                mergedChats += chats.size - 1
+            } else {
+                // App social: fusionar chats con el mismo nombre canónico.
+                // Bug histórico: nombres en árabe/chino/etc. producían canónico vacío y
+                // cada notificación creaba un chat con id "chat:<timestamp>" distinto.
+                val groups = chats.groupBy { chat ->
+                    val canonical = com.example.whatsappsummary.util.ChatUtils.canonicalize(chat.chatName)
+                    // Si el nombre no tiene letras/dígitos (caso raro), agrupar por nombre bruto.
+                    if (canonical.isBlank()) "raw:${chat.chatName.trim().lowercase()}"
+                    else canonical
+                }
+                for ((_, group) in groups) {
+                    if (group.size < 2) continue
+                    // Elegir "ganador": el que tenga chatId que NO empiece por "chat:<ts>" si hay; si no, el primero.
+                    val winner = group.firstOrNull { !it.chatId.startsWith("chat:") } ?: group.first()
+                    for (loser in group) {
+                        if (loser.chatId == winner.chatId) continue
+                        notificationDao.reassignChat(loser.chatId, winner.chatId)
+                        chatDao.deleteChatById(loser.chatId)
+                        mergedChats++
+                    }
+                }
             }
-            // Reasignar notificaciones de todos los chats de la app al bucket
-            notificationDao.reassignNotificationsToBucket(app.id, bucketChatId)
-            // Borrar los chats viejos
-            chatDao.deleteOtherChatsForApp(app.id, bucketChatId)
-            mergedChats += chats.size - 1
         }
 
         // 3) Chats huérfanos (sin notificaciones) fuera

@@ -41,6 +41,11 @@ class ChatsListFragment : Fragment() {
 
     companion object {
         private const val REQ_POST_NOTIFICATIONS = 9301
+
+        /** Incrementar cuando cambie la lógica de cleanupGarbage para forzar un
+         *  re-run en arranques existentes. v2 introduce el merge de chats sociales
+         *  duplicados (bug de canonicalize con scripts no-latinos). */
+        private const val CLEANUP_VERSION = 2
     }
 
     override fun onCreateView(
@@ -123,8 +128,12 @@ class ChatsListFragment : Fragment() {
     private fun autoCleanupOnceIfNeeded() {
         val prefs = requireContext().getSharedPreferences("wa_listener_prefs", Context.MODE_PRIVATE)
         val lastCleanup = prefs.getLong("last_cleanup_ts", 0L)
+        val lastVersion = prefs.getInt("last_cleanup_version", 0)
         val now = System.currentTimeMillis()
-        if (now - lastCleanup < 24 * 60 * 60 * 1000L) return
+
+        // Si el código trae una versión de limpieza nueva, forzar run aunque <24h.
+        val forced = lastVersion < CLEANUP_VERSION
+        if (!forced && now - lastCleanup < 24 * 60 * 60 * 1000L) return
 
         viewLifecycleOwner.lifecycleScope.launch {
             val db = com.example.whatsappsummary.data.AppDatabase.getDatabase(requireContext().applicationContext)
@@ -132,7 +141,10 @@ class ChatsListFragment : Fragment() {
                 db.appDao(), db.chatDao(), db.notificationDao(), db.dailySummaryDao()
             )
             withContext(Dispatchers.IO) { runCatching { repo.cleanupGarbage() } }
-            prefs.edit().putLong("last_cleanup_ts", now).apply()
+            prefs.edit()
+                .putLong("last_cleanup_ts", now)
+                .putInt("last_cleanup_version", CLEANUP_VERSION)
+                .apply()
         }
     }
 

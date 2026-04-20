@@ -109,4 +109,8 @@ interface NotificationDao {
         WHERE chat_id IN (SELECT chatId FROM chats WHERE appId = :appId AND chatId != :newChatId)
     """)
     suspend fun reassignNotificationsToBucket(appId: Long, newChatId: String)
+
+    /** Reasigna las notificaciones de un chat específico a otro. */
+    @Query("UPDATE notifications SET chat_id = :newChatId WHERE chat_id = :oldChatId")
+    suspend fun reassignChat(oldChatId: String, newChatId: String)
 }

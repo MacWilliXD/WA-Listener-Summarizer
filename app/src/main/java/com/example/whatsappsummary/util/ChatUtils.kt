@@ -37,14 +37,16 @@ object ChatUtils {
     }
 
     /**
-     * Forma canónica para comparación: sin acentos, minúsculas, sólo alfanuméricos.
+     * Forma canónica para comparación: sin acentos, minúsculas, solo letras y
+     * dígitos Unicode. Preserva árabe, chino, hebreo, etc. así funciona la
+     * detección de chats duplicados en cualquier idioma.
      */
     fun canonicalize(raw: String): String {
         val normalized = Normalizer.normalize(raw, Normalizer.Form.NFD)
         return normalized
-            .replace(Regex("\\p{M}"), "")
+            .replace(Regex("\\p{M}"), "")          // quita marcas diacríticas
             .lowercase(Locale.getDefault())
-            .replace(Regex("[^a-z0-9]"), "")
+            .replace(Regex("[^\\p{L}\\p{Nd}]"), "") // conserva LETRAS y DÍGITOS de cualquier script
     }
 
     /**
